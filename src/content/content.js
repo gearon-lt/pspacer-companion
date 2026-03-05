@@ -190,7 +190,6 @@ async function persistTerritoryAndLot() {
   const parkingLotId = lotSelectRef?.value || null;
 
   const base = (await safeSendMessage({ type: "GET_RULES" }))?.rules || {};
-  const prevLotId = base?.filter?.parkingLotId || null;
 
   const nextRules = {
     ...base,
@@ -203,10 +202,6 @@ async function persistTerritoryAndLot() {
 
   currentRules = nextRules;
   await safeSendMessage({ type: "SET_RULES", rules: nextRules });
-
-  if (prevLotId !== parkingLotId) {
-    triggerSharingsRefresh();
-  }
 }
 
 function getSelectedTerritoryId() {
@@ -275,29 +270,6 @@ function requestLookups() {
 
     window.postMessage({ source: TARGET, type: "FETCH_LOOKUPS", requestId }, "*");
   });
-}
-
-function triggerSharingsRefresh() {
-  try {
-    const form = territoryControlRef?.closest("form") || document.querySelector("form.ExchangesForm") || document.querySelector("form");
-
-    // 1) Keep territory untouched, but force normal form lifecycle.
-    form?.dispatchEvent(new Event("input", { bubbles: true }));
-    form?.dispatchEvent(new Event("change", { bubbles: true }));
-    form?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
-    try { form?.requestSubmit?.(); } catch (_) {}
-
-    // 2) Nudge date fields (this page fetches on date/territory changes).
-    const dateInputs = [...document.querySelectorAll('input[type="date"], input[id*="date" i], input[name*="date" i]')];
-    for (const input of dateInputs.slice(0, 2)) {
-      const v = input.value;
-      input.dispatchEvent(new Event("focus", { bubbles: true }));
-      input.dispatchEvent(new Event("input", { bubbles: true }));
-      input.dispatchEvent(new Event("change", { bubbles: true }));
-      input.value = v;
-      input.dispatchEvent(new Event("blur", { bubbles: true }));
-    }
-  } catch (_) {}
 }
 
 function findTerritoryControl() {
