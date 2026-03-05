@@ -141,14 +141,12 @@ function mountOrUpdateControl() {
 
   renderLotOptions();
   syncLotSelectionFromRules();
-  syncLotVisibilityWithTerritoryMenu();
 }
 
 function onTerritoryChanged() {
   setTimeout(() => {
     renderLotOptions();
     persistTerritoryAndLot();
-    syncLotVisibilityWithTerritoryMenu();
   }, 50);
 }
 
@@ -182,6 +180,8 @@ async function persistTerritoryAndLot() {
   const parkingLotId = lotSelectRef?.value || null;
 
   const base = (await chrome.runtime.sendMessage({ type: "GET_RULES" }))?.rules || {};
+  const prevLotId = base?.filter?.parkingLotId || null;
+
   const nextRules = {
     ...base,
     filter: {
@@ -193,6 +193,10 @@ async function persistTerritoryAndLot() {
 
   currentRules = nextRules;
   await chrome.runtime.sendMessage({ type: "SET_RULES", rules: nextRules });
+
+  if (prevLotId !== parkingLotId) {
+    triggerSharingsRefresh();
+  }
 }
 
 function getSelectedTerritoryId() {
@@ -263,12 +267,15 @@ function requestLookups() {
   });
 }
 
-function syncLotVisibilityWithTerritoryMenu() {
-  const wrapper = document.querySelector("#pspacer-page-lot-filter");
-  if (!wrapper || !territoryControlRef) return;
+function triggerSharingsRefresh() {
+  if (!territoryControlRef) return;
 
-  const expanded = territoryControlRef.getAttribute("aria-expanded") === "true";
-  wrapper.style.visibility = expanded ? "hidden" : "visible";
+  try {
+    territoryControlRef.dispatchEvent(new Event("input", { bubbles: true }));
+    territoryControlRef.dispatchEvent(new Event("change", { bubbles: true }));
+    territoryControlRef.dispatchEvent(new Event("blur", { bubbles: true }));
+    territoryControlRef.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+  } catch (_) {}
 }
 
 function findTerritoryControl() {
