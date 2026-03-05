@@ -8,6 +8,7 @@ let parkingLots = [];
 let territoryControlRef = null;
 let territoryHostRef = null;
 let lotSelectRef = null;
+let lastTerritoryResolved = null;
 
 injectPageHook();
 bootstrapOverlay();
@@ -104,17 +105,9 @@ function mountOrUpdateControl() {
   if (!lotSelectRef || !document.contains(lotSelectRef)) {
     const wrapper = document.createElement("div");
     wrapper.id = "pspacer-page-lot-filter";
-    wrapper.style.position = "absolute";
-    wrapper.style.left = "0";
-    wrapper.style.top = "calc(100% + 6px)";
-    wrapper.style.width = "320px";
-    wrapper.style.zIndex = "2147483647";
+    wrapper.style.marginTop = "8px";
+    wrapper.style.width = "100%";
     wrapper.style.pointerEvents = "auto";
-    wrapper.style.background = "#fff";
-    wrapper.style.padding = "6px";
-    wrapper.style.border = "1px solid #d9d9d9";
-    wrapper.style.borderRadius = "6px";
-    wrapper.style.boxShadow = "0 2px 8px rgba(0,0,0,0.12)";
 
     const label = document.createElement("label");
     label.textContent = "Parking lot";
@@ -131,11 +124,7 @@ function mountOrUpdateControl() {
 
     wrapper.appendChild(label);
     wrapper.appendChild(lotSelectRef);
-    if (territoryHostRef) {
-      territoryHostRef.style.position = territoryHostRef.style.position || "relative";
-      territoryHostRef.style.overflow = "visible";
-      territoryHostRef.appendChild(wrapper);
-    }
+    territoryHostRef?.insertAdjacentElement("afterend", wrapper);
   }
 
   renderLotOptions();
@@ -143,14 +132,16 @@ function mountOrUpdateControl() {
 }
 
 function onTerritoryChanged() {
-  renderLotOptions();
-  persistTerritoryAndLot();
+  setTimeout(() => {
+    renderLotOptions();
+    persistTerritoryAndLot();
+  }, 50);
 }
 
 function renderLotOptions() {
   if (!lotSelectRef) return;
 
-  const selectedTerritory = getSelectedTerritoryId() || currentRules?.filter?.territoryId || "";
+  const selectedTerritory = getSelectedTerritoryId() || lastTerritoryResolved || currentRules?.filter?.territoryId || "";
   const allowedLots = parkingLots
     .filter((x) => !selectedTerritory || x.territoryId === selectedTerritory)
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -205,16 +196,34 @@ function getSelectedTerritoryId() {
   raw = String(raw).trim();
   if (!raw) return null;
 
-  if (territories.some((t) => t.id === raw)) return raw;
-
   const norm = (s) => String(s || "").toLowerCase().replace(/\s+/g, " ").trim();
+
+  if (!raw && territoryHostRef) {
+    const singleValue = territoryHostRef.querySelector(".css-1dimb5e-singleValue");
+    raw = (singleValue?.textContent || "").trim();
+  }
+
+  if (territories.some((t) => t.id === raw)) {
+    lastTerritoryResolved = raw;
+    return raw;
+  }
+
   const rawNorm = norm(raw);
+  if (!rawNorm) return lastTerritoryResolved;
 
   const exact = territories.find((t) => norm(t.name) === rawNorm);
-  if (exact) return exact.id;
+  if (exact) {
+    lastTerritoryResolved = exact.id;
+    return exact.id;
+  }
 
   const contains = territories.find((t) => norm(t.name).includes(rawNorm) || rawNorm.includes(norm(t.name)));
-  return contains?.id || null;
+  if (contains) {
+    lastTerritoryResolved = contains.id;
+    return contains.id;
+  }
+
+  return lastTerritoryResolved;
 }
 
 function requestLookups() {
