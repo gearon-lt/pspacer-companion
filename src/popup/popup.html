@@ -36,18 +36,8 @@
       <input id="minItemCount" type="number" min="1" step="1" placeholder="5" />
     </label>
 
-    <label>
-      Parking name contains
-      <input id="parkingName" list="parkingNamePresets" placeholder="El." />
-      <datalist id="parkingNamePresets">
-        <option value="El."></option>
-        <option value="El.stotelė"></option>
-        <option value="El.lizdas"></option>
-      </datalist>
-    </label>
-
     <button id="save">Save rules</button>
-    <div class="hint">Territory and parking-lot filters are now set directly on spacer page.</div>
+    <div class="hint">Territory, parking lot, and parking name filters are set directly on spacer page.</div>
     <div class="hint">Reload spacer.click tab after changing rules.</div>
 
     <script type="module" src="popup.js"></script>

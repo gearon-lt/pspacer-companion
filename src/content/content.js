@@ -8,6 +8,7 @@ let parkingLots = [];
 let territoryControlRef = null;
 let territoryHostRef = null;
 let lotSelectRef = null;
+let parkingNameSelectRef = null;
 let lastTerritoryResolved = null;
 
 injectPageHook();
@@ -90,7 +91,7 @@ async function bootstrapPageParkingLotControl() {
   const timer = setInterval(() => {
     attempts += 1;
     mountOrUpdateControl();
-    if (lotSelectRef || attempts >= 30) clearInterval(timer);
+    if (lotSelectRef && parkingNameSelectRef || attempts >= 30) clearInterval(timer);
   }, 500);
 
 }
@@ -120,16 +121,16 @@ function mountOrUpdateControl() {
   territoryHostRef = findTerritoryHost(territoryControl);
 
   if (!lotSelectRef || !document.contains(lotSelectRef)) {
-    const wrapper = document.createElement("div");
-    wrapper.id = "pspacer-page-lot-filter";
-    wrapper.className = "form-controll-select MuiBox-root css-0";
+    const lotWrapper = document.createElement("div");
+    lotWrapper.id = "pspacer-page-lot-filter";
+    lotWrapper.className = "form-controll-select MuiBox-root css-0";
 
-    const label = document.createElement("label");
-    label.textContent = "Actual parking lot";
-    label.className = "MuiFormLabel-root MuiInputLabel-root MuiInputLabel-animated MuiFormLabel-colorPrimary MuiInputLabel-root MuiInputLabel-animated input-label css-pmox31";
+    const lotLabel = document.createElement("label");
+    lotLabel.textContent = "Actual parking lot";
+    lotLabel.className = "MuiFormLabel-root MuiInputLabel-root MuiInputLabel-animated MuiFormLabel-colorPrimary MuiInputLabel-root MuiInputLabel-animated input-label css-pmox31";
 
-    const gridItem = document.createElement("div");
-    gridItem.className = "MuiGrid-root MuiGrid-item MuiGrid-grid-xs-12 css-15j76c0";
+    const lotGridItem = document.createElement("div");
+    lotGridItem.className = "MuiGrid-root MuiGrid-item MuiGrid-grid-xs-12 css-15j76c0";
 
     lotSelectRef = document.createElement("select");
     lotSelectRef.style.width = "100%";
@@ -140,10 +141,39 @@ function mountOrUpdateControl() {
     lotSelectRef.style.background = "#fff";
     lotSelectRef.addEventListener("change", persistTerritoryAndLot);
 
-    gridItem.appendChild(lotSelectRef);
-    wrapper.appendChild(label);
-    wrapper.appendChild(gridItem);
-    territoryHostRef?.insertAdjacentElement("afterend", wrapper);
+    lotGridItem.appendChild(lotSelectRef);
+    lotWrapper.appendChild(lotLabel);
+    lotWrapper.appendChild(lotGridItem);
+    territoryHostRef?.insertAdjacentElement("afterend", lotWrapper);
+
+    const nameWrapper = document.createElement("div");
+    nameWrapper.id = "pspacer-page-name-filter";
+    nameWrapper.className = "form-controll-select MuiBox-root css-0";
+
+    const nameLabel = document.createElement("label");
+    nameLabel.textContent = "Parking name";
+    nameLabel.className = "MuiFormLabel-root MuiInputLabel-root MuiInputLabel-animated MuiFormLabel-colorPrimary MuiInputLabel-root MuiInputLabel-animated input-label css-pmox31";
+
+    const nameGridItem = document.createElement("div");
+    nameGridItem.className = "MuiGrid-root MuiGrid-item MuiGrid-grid-xs-12 css-15j76c0";
+
+    parkingNameSelectRef = document.createElement("select");
+    parkingNameSelectRef.style.width = "100%";
+    parkingNameSelectRef.style.minHeight = "38px";
+    parkingNameSelectRef.style.padding = "8px 10px";
+    parkingNameSelectRef.style.border = "1px solid #d9d9d9";
+    parkingNameSelectRef.style.borderRadius = "4px";
+    parkingNameSelectRef.style.background = "#fff";
+    parkingNameSelectRef.append(new Option("Any", ""));
+    parkingNameSelectRef.append(new Option("El.", "El."));
+    parkingNameSelectRef.append(new Option("El.stotelė", "El.stotelė"));
+    parkingNameSelectRef.append(new Option("El.lizdas", "El.lizdas"));
+    parkingNameSelectRef.addEventListener("change", persistTerritoryAndLot);
+
+    nameGridItem.appendChild(parkingNameSelectRef);
+    nameWrapper.appendChild(nameLabel);
+    nameWrapper.appendChild(nameGridItem);
+    lotWrapper.insertAdjacentElement("afterend", nameWrapper);
   }
 
   renderLotOptions();
@@ -180,28 +210,40 @@ function syncLotSelectionFromRules() {
   const lotId = currentRules.filter.parkingLotId || "";
   if ([...lotSelectRef.options].some((o) => o.value === lotId)) lotSelectRef.value = lotId;
   else lotSelectRef.value = "";
+
+  if (parkingNameSelectRef) {
+    const parkingName = currentRules.filter.parkingName || "";
+    if ([...parkingNameSelectRef.options].some((o) => o.value === parkingName)) {
+      parkingNameSelectRef.value = parkingName;
+    } else {
+      parkingNameSelectRef.value = "";
+    }
+  }
 }
 
 async function persistTerritoryAndLot() {
   const territoryId = getSelectedTerritoryId() || null;
   const parkingLotId = lotSelectRef?.value || null;
+  const parkingName = parkingNameSelectRef?.value || null;
 
   const base = (await safeSendMessage({ type: "GET_RULES" }))?.rules || {};
   const prevLotId = base?.filter?.parkingLotId || null;
+  const prevParkingName = base?.filter?.parkingName || null;
 
   const nextRules = {
     ...base,
     filter: {
       ...(base.filter || {}),
       territoryId,
-      parkingLotId
+      parkingLotId,
+      parkingName
     }
   };
 
   currentRules = nextRules;
   await safeSendMessage({ type: "SET_RULES", rules: nextRules });
 
-  if (prevLotId !== parkingLotId) {
+  if (prevLotId !== parkingLotId || prevParkingName !== parkingName) {
     window.postMessage({ source: TARGET, type: "TRIGGER_SHARED_SPACES_FETCH" }, "*");
   }
 }
