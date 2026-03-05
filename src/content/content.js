@@ -96,7 +96,14 @@ function mountOrUpdateControl() {
   if (!lotSelectRef || !document.contains(lotSelectRef)) {
     const wrapper = document.createElement("div");
     wrapper.id = "pspacer-page-lot-filter";
-    wrapper.style.marginTop = "8px";
+    wrapper.style.position = "fixed";
+    wrapper.style.zIndex = "99999";
+    wrapper.style.background = "#fff";
+    wrapper.style.border = "1px solid #d9d9d9";
+    wrapper.style.borderRadius = "6px";
+    wrapper.style.padding = "8px";
+    wrapper.style.boxShadow = "0 2px 8px rgba(0,0,0,0.12)";
+    wrapper.style.minWidth = "260px";
 
     const label = document.createElement("label");
     label.textContent = "Parking lot";
@@ -106,25 +113,33 @@ function mountOrUpdateControl() {
 
     lotSelectRef = document.createElement("select");
     lotSelectRef.style.width = "100%";
-    lotSelectRef.style.minHeight = "38px";
+    lotSelectRef.style.minHeight = "34px";
     lotSelectRef.style.padding = "4px";
     lotSelectRef.addEventListener("change", persistTerritoryAndLot);
 
     wrapper.appendChild(label);
     wrapper.appendChild(lotSelectRef);
-
-    const host = findTerritoryHost(territoryControl) || territoryControl.parentElement;
-    host?.insertAdjacentElement("afterend", wrapper);
+    document.body.appendChild(wrapper);
   }
 
+  positionLotControlNearTerritory(territoryControl);
   renderLotOptions();
   syncLotSelectionFromRules();
 }
 
 function onTerritoryChanged() {
+  if (territoryControlRef) positionLotControlNearTerritory(territoryControlRef);
   renderLotOptions();
   persistTerritoryAndLot();
 }
+
+window.addEventListener("scroll", () => {
+  if (territoryControlRef) positionLotControlNearTerritory(territoryControlRef);
+}, { passive: true });
+
+window.addEventListener("resize", () => {
+  if (territoryControlRef) positionLotControlNearTerritory(territoryControlRef);
+});
 
 function renderLotOptions() {
   if (!lotSelectRef) return;
@@ -211,6 +226,20 @@ function requestLookups() {
 
     window.postMessage({ source: TARGET, type: "FETCH_LOOKUPS", requestId }, "*");
   });
+}
+
+function positionLotControlNearTerritory(control) {
+  const wrapper = document.querySelector("#pspacer-page-lot-filter");
+  if (!wrapper || !control) return;
+
+  const rect = control.getBoundingClientRect();
+  const top = Math.round(rect.bottom + 8);
+  const left = Math.round(rect.left);
+  const width = Math.max(260, Math.round(rect.width));
+
+  wrapper.style.top = `${top}px`;
+  wrapper.style.left = `${left}px`;
+  wrapper.style.width = `${width}px`;
 }
 
 function findTerritoryControl() {
