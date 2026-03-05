@@ -83,6 +83,8 @@ async function bootstrapPageParkingLotControl() {
     mountOrUpdateControl();
     if (lotSelectRef || attempts >= 30) clearInterval(timer);
   }, 500);
+
+  setInterval(syncLotVisibilityWithTerritoryMenu, 200);
 }
 
 async function refreshLookupsSilently() {
@@ -141,12 +143,14 @@ function mountOrUpdateControl() {
 
   renderLotOptions();
   syncLotSelectionFromRules();
+  syncLotVisibilityWithTerritoryMenu();
 }
 
 function onTerritoryChanged() {
   setTimeout(() => {
     renderLotOptions();
     persistTerritoryAndLot();
+    syncLotVisibilityWithTerritoryMenu();
   }, 50);
 }
 
@@ -268,14 +272,31 @@ function requestLookups() {
 }
 
 function triggerSharingsRefresh() {
-  if (!territoryControlRef) return;
+  const buttons = [...document.querySelectorAll("button")];
+  const applyButton = buttons.find((b) => {
+    const t = (b.textContent || "").trim().toLowerCase();
+    return t.includes("iešk") || t.includes("iesk") || t.includes("search") || t.includes("taiky") || t.includes("filter");
+  });
 
+  if (applyButton) {
+    applyButton.click();
+    return;
+  }
+
+  if (!territoryControlRef) return;
   try {
     territoryControlRef.dispatchEvent(new Event("input", { bubbles: true }));
     territoryControlRef.dispatchEvent(new Event("change", { bubbles: true }));
-    territoryControlRef.dispatchEvent(new Event("blur", { bubbles: true }));
     territoryControlRef.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
   } catch (_) {}
+}
+
+function syncLotVisibilityWithTerritoryMenu() {
+  const wrapper = document.querySelector("#pspacer-page-lot-filter");
+  if (!wrapper || !territoryControlRef) return;
+
+  const expanded = territoryControlRef.getAttribute("aria-expanded") === "true";
+  wrapper.style.visibility = expanded ? "hidden" : "visible";
 }
 
 function findTerritoryControl() {
