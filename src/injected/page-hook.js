@@ -8,9 +8,26 @@
 
   window.addEventListener("message", (event) => {
     if (event.source !== window) return;
-    const { source, type, payload } = event.data || {};
+    const { source, type, payload, requestId } = event.data || {};
     if (source !== TARGET) return;
-    if (type === "RULES") rules = payload;
+    if (type === "RULES") {
+      rules = payload;
+      return;
+    }
+    if (type === "FETCH_LOOKUPS") {
+      fetchLookups()
+        .then((lookups) => {
+          window.postMessage({ source: SOURCE, type: "LOOKUPS_RESULT", requestId, payload: lookups }, "*");
+        })
+        .catch((err) => {
+          window.postMessage({
+            source: SOURCE,
+            type: "LOOKUPS_ERROR",
+            requestId,
+            payload: { message: err?.message || "Failed to fetch lookup values" }
+          }, "*");
+        });
+    }
   });
 
   const originalFetch = window.fetch.bind(window);
@@ -81,6 +98,44 @@
       }
     })();
   };
+
+  async function fetchLookups() {
+    const [territoriesResp, parkingLotsResp] = await Promise.all([
+      originalFetch("https://spacer.click/api/private-K20A-prod-3d807/v1/ParkingSpaces", { credentials: "include" }),
+      originalFetch("https://spacer.click/api/private-K20A-prod-3d807/v1/ParkingLots", { credentials: "include" })
+    ]);
+
+    if (!territoriesResp.ok) {
+      throw new Error(`ParkingSpaces failed: ${territoriesResp.status} ${territoriesResp.statusText}`);
+    }
+    if (!parkingLotsResp.ok) {
+      throw new Error(`ParkingLots failed: ${parkingLotsResp.status} ${parkingLotsResp.statusText}`);
+    }
+
+    const territoriesRaw = await territoriesResp.json();
+    const parkingLotsRaw = await parkingLotsResp.json();
+
+    const territories = normalizeArray(territoriesRaw).map((item) => ({
+      id: String(item.id ?? item.territoryId ?? ""),
+      name: String(item.name ?? item.parkingSpaceName ?? item.title ?? item.id ?? "")
+    })).filter((x) => x.id && x.name);
+
+    const parkingLots = normalizeArray(parkingLotsRaw).map((item) => ({
+      id: String(item.id ?? item.parkingLotId ?? ""),
+      territoryId: String(item.parkingSpaceId ?? item.territoryId ?? ""),
+      name: String(item.name ?? item.parkingLotName ?? item.title ?? item.id ?? "")
+    })).filter((x) => x.id && x.name);
+
+    return { territories, parkingLots };
+  }
+
+  function normalizeArray(payload) {
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.items)) return payload.items;
+    if (Array.isArray(payload?.data)) return payload.data;
+    if (Array.isArray(payload?.results)) return payload.results;
+    return [];
+  }
 
   function shouldIntercept(url = "", activeRules) {
     if (!activeRules?.enabled) return false;

@@ -1,6 +1,8 @@
 const SOURCE = "PSPACER_PAGE";
 const TARGET = "PSPACER_EXTENSION";
 
+const pendingRequests = new Map();
+
 injectPageHook();
 bootstrapOverlay();
 
@@ -16,16 +18,12 @@ function injectPageHook() {
 window.addEventListener("message", async (event) => {
   if (event.source !== window) return;
 
-  const { source, type, payload } = event.data || {};
+  const { source, type, payload, requestId } = event.data || {};
   if (source !== SOURCE) return;
 
   if (type === "REQUEST_RULES") {
     const response = await chrome.runtime.sendMessage({ type: "GET_RULES" });
-    window.postMessage({
-      source: TARGET,
-      type: "RULES",
-      payload: response?.rules
-    }, "*");
+    window.postMessage({ source: TARGET, type: "RULES", payload: response?.rules }, "*");
     return;
   }
 
@@ -34,9 +32,42 @@ window.addEventListener("message", async (event) => {
     return;
   }
 
+  if (type === "LOOKUPS_RESULT" || type === "LOOKUPS_ERROR") {
+    const waiter = pendingRequests.get(requestId);
+    if (!waiter) return;
+    pendingRequests.delete(requestId);
+    if (type === "LOOKUPS_ERROR") waiter.reject(new Error(payload?.message || "Failed to load lookups"));
+    else waiter.resolve(payload);
+    return;
+  }
+
   if (type === "LOG") {
     chrome.runtime.sendMessage({ type: "LOG", payload });
   }
+});
+
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message?.type !== "GET_LOOKUPS") return false;
+
+  const requestId = crypto.randomUUID();
+  const timeout = setTimeout(() => {
+    pendingRequests.delete(requestId);
+    sendResponse({ ok: false, error: "Timed out while loading lookups" });
+  }, 8000);
+
+  pendingRequests.set(requestId, {
+    resolve: (payload) => {
+      clearTimeout(timeout);
+      sendResponse({ ok: true, payload });
+    },
+    reject: (err) => {
+      clearTimeout(timeout);
+      sendResponse({ ok: false, error: err?.message || "Lookup error" });
+    }
+  });
+
+  window.postMessage({ source: TARGET, type: "FETCH_LOOKUPS", requestId }, "*");
+  return true;
 });
 
 function bootstrapOverlay() {

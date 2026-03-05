@@ -5,12 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>PSpacer Companion</title>
     <style>
-      body { font: 13px/1.4 -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif; margin: 12px; min-width: 320px; }
+      body { font: 13px/1.4 -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif; margin: 12px; min-width: 340px; }
       h1 { font-size: 14px; margin: 0 0 10px; }
       label { display: block; margin-top: 8px; }
-      input { width: 100%; padding: 4px; box-sizing: border-box; }
+      input, select { width: 100%; padding: 4px; box-sizing: border-box; }
+      .row { display: flex; gap: 8px; }
+      .row > * { flex: 1; }
       button { margin-top: 12px; width: 100%; padding: 6px; }
       .hint { color: #666; font-size: 12px; margin-top: 8px; }
+      #status { color: #666; font-size: 12px; margin-top: 8px; min-height: 16px; }
     </style>
   </head>
   <body>
@@ -18,15 +21,16 @@
 
     <label><input type="checkbox" id="enabled" /> Enable filtering</label>
 
-    <label>
-      Page size (Limit)
-      <input id="pageSize" type="number" min="1" step="1" placeholder="200" />
-    </label>
-
-    <label>
-      Max fetch cycles
-      <input id="maxFetchCycles" type="number" min="1" step="1" placeholder="10" />
-    </label>
+    <div class="row">
+      <label>
+        Page size
+        <input id="pageSize" type="number" min="1" step="1" placeholder="200" />
+      </label>
+      <label>
+        Max cycles
+        <input id="maxFetchCycles" type="number" min="1" step="1" placeholder="10" />
+      </label>
+    </div>
 
     <label>
       Min matched items
@@ -34,21 +38,28 @@
     </label>
 
     <label>
-      Territory ID (optional)
-      <input id="territoryId" type="text" placeholder="uuid" />
+      Territory
+      <select id="territoryId"></select>
     </label>
 
     <label>
-      Parking lot ID (optional)
-      <input id="parkingLotId" type="text" placeholder="uuid" />
+      Parking lot
+      <select id="parkingLotId"></select>
     </label>
 
     <label>
-      Parking name contains (optional)
-      <input id="parkingName" type="text" placeholder="El." />
+      Parking name contains
+      <input id="parkingName" list="parkingNamePresets" placeholder="El." />
+      <datalist id="parkingNamePresets">
+        <option value="El."></option>
+        <option value="El.stotelė"></option>
+        <option value="El.lizdas"></option>
+      </datalist>
     </label>
 
+    <button id="refresh">Refresh territories/lots</button>
     <button id="save">Save rules</button>
+    <div id="status"></div>
     <div class="hint">Reload spacer.click tab after changing rules.</div>
 
     <script type="module" src="popup.js"></script>
