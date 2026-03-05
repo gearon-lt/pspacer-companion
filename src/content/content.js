@@ -274,16 +274,33 @@ function requestLookups() {
   });
 }
 
+let cachedFetchInstance = null;
+
 function triggerReactSharedSpacesFetch() {
   try {
-    const seed = territoryControlRef || document.querySelector('input[id^="react-select-"][id$="-input"]');
-    if (!seed) return;
+    const predicate = (inst) => typeof inst?.fetchSharedSpaces === "function" || typeof inst?.setLot === "function";
 
-    const instance = findReactComponentInstance(seed, (inst) =>
-      typeof inst?.fetchSharedSpaces === "function" || typeof inst?.setLot === "function"
-    );
+    const seed = territoryControlRef
+      || document.querySelector('input[id^="react-select-"][id$="-input"]')
+      || document.querySelector("form.ExchangesForm")
+      || document.querySelector("#root");
+
+    let instance = null;
+
+    if (cachedFetchInstance && predicate(cachedFetchInstance)) {
+      instance = cachedFetchInstance;
+    }
+
+    if (!instance && seed) {
+      instance = findReactComponentInstance(seed, predicate);
+    }
+
+    if (!instance) {
+      instance = findAnyReactComponentInstance(predicate);
+    }
 
     if (!instance) return;
+    cachedFetchInstance = instance;
 
     if (typeof instance.fetchSharedSpaces === "function") {
       instance.fetchSharedSpaces();
@@ -316,6 +333,15 @@ function findReactComponentInstance(seedEl, predicate) {
     el = el.parentElement;
   }
 
+  return null;
+}
+
+function findAnyReactComponentInstance(predicate) {
+  const all = document.querySelectorAll("*");
+  for (const el of all) {
+    const found = findReactComponentInstance(el, predicate);
+    if (found) return found;
+  }
   return null;
 }
 
