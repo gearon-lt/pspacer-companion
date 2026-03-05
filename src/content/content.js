@@ -112,25 +112,9 @@ function mountOrUpdateControl() {
     territoryControlRef = territoryControl;
     territoryControlRef.addEventListener("change", onTerritoryChanged, true);
     territoryControlRef.addEventListener("input", onTerritoryChanged, true);
-    territoryControlRef.addEventListener("blur", () => {
-      onTerritoryChanged();
-      setLotDropdownVisibility(true);
-    }, true);
-    territoryControlRef.addEventListener("focus", () => {
-      onTerritoryChanged();
-      setLotDropdownVisibility(false);
-    }, true);
-    territoryControlRef.addEventListener("click", () => {
-      setLotDropdownVisibility(false);
-      setTimeout(onTerritoryChanged, 300);
-    }, true);
-    territoryControlRef.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" || e.key === "Tab" || e.key === "Enter") {
-        setTimeout(() => setLotDropdownVisibility(true), 100);
-      } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-        setLotDropdownVisibility(false);
-      }
-    }, true);
+    territoryControlRef.addEventListener("blur", onTerritoryChanged, true);
+    territoryControlRef.addEventListener("focus", onTerritoryChanged, true);
+    territoryControlRef.addEventListener("click", () => setTimeout(onTerritoryChanged, 300), true);
   }
 
   territoryHostRef = findTerritoryHost(territoryControl);
@@ -138,30 +122,27 @@ function mountOrUpdateControl() {
   if (!lotSelectRef || !document.contains(lotSelectRef)) {
     const wrapper = document.createElement("div");
     wrapper.id = "pspacer-page-lot-filter";
-    wrapper.style.marginTop = "8px";
-    wrapper.style.width = "100%";
-    wrapper.style.position = "relative";
-    wrapper.style.zIndex = "10000";
-    wrapper.style.pointerEvents = "auto";
-    wrapper.style.background = "#fff";
+    wrapper.className = "form-controll-select MuiBox-root css-0";
 
     const label = document.createElement("label");
     label.textContent = "Parking lot";
-    label.style.display = "block";
-    label.style.fontSize = "12px";
-    label.style.marginBottom = "4px";
+    label.className = "MuiFormLabel-root MuiInputLabel-root MuiInputLabel-animated MuiFormLabel-colorPrimary MuiInputLabel-root MuiInputLabel-animated input-label css-pmox31";
+
+    const gridItem = document.createElement("div");
+    gridItem.className = "MuiGrid-root MuiGrid-item MuiGrid-grid-xs-12 css-15j76c0";
 
     lotSelectRef = document.createElement("select");
     lotSelectRef.style.width = "100%";
-    lotSelectRef.style.minHeight = "36px";
-    lotSelectRef.style.padding = "4px";
-    lotSelectRef.style.position = "relative";
-    lotSelectRef.style.zIndex = "10001";
-    lotSelectRef.style.pointerEvents = "auto";
+    lotSelectRef.style.minHeight = "38px";
+    lotSelectRef.style.padding = "8px 10px";
+    lotSelectRef.style.border = "1px solid #d9d9d9";
+    lotSelectRef.style.borderRadius = "4px";
+    lotSelectRef.style.background = "#fff";
     lotSelectRef.addEventListener("change", persistTerritoryAndLot);
 
+    gridItem.appendChild(lotSelectRef);
     wrapper.appendChild(label);
-    wrapper.appendChild(lotSelectRef);
+    wrapper.appendChild(gridItem);
     territoryHostRef?.insertAdjacentElement("afterend", wrapper);
   }
 
@@ -286,12 +267,6 @@ function requestLookups() {
 
     window.postMessage({ source: TARGET, type: "FETCH_LOOKUPS", requestId }, "*");
   });
-}
-
-function setLotDropdownVisibility(visible) {
-  const wrapper = document.querySelector("#pspacer-page-lot-filter");
-  if (!wrapper) return;
-  wrapper.style.visibility = visible ? "visible" : "hidden";
 }
 
 function findTerritoryControl() {
