@@ -28,6 +28,11 @@
             payload: { message: err?.message || "Failed to fetch lookup values" }
           }, "*");
         });
+      return;
+    }
+
+    if (type === "TRIGGER_SHARED_SPACES_FETCH") {
+      triggerReactSharedSpacesFetch();
     }
   });
 
@@ -152,6 +157,65 @@
     if (Array.isArray(payload?.data)) return payload.data;
     if (Array.isArray(payload?.results)) return payload.results;
     return [];
+  }
+
+  let cachedFetchInstance = null;
+
+  function triggerReactSharedSpacesFetch() {
+    try {
+      const predicate = (inst) => typeof inst?.fetchSharedSpaces === "function" || typeof inst?.setLot === "function";
+      let instance = cachedFetchInstance && predicate(cachedFetchInstance) ? cachedFetchInstance : null;
+
+      if (!instance) {
+        const seed = document.querySelector('input[id^="react-select-"][id$="-input"]')
+          || document.querySelector("form.ExchangesForm")
+          || document.querySelector("#root");
+        if (seed) instance = findReactComponentInstance(seed, predicate);
+      }
+
+      if (!instance) {
+        const all = document.querySelectorAll("*");
+        for (const el of all) {
+          instance = findReactComponentInstance(el, predicate);
+          if (instance) break;
+        }
+      }
+
+      if (!instance) return;
+      cachedFetchInstance = instance;
+
+      if (typeof instance.fetchSharedSpaces === "function") {
+        instance.fetchSharedSpaces();
+        return;
+      }
+
+      if (typeof instance.setLot === "function") {
+        const currentLot = instance.state?.lot ?? instance.props?.lot ?? null;
+        instance.setLot(currentLot);
+      }
+    } catch (err) {
+      emitLog({ type: "react_fetch_trigger_error", message: err?.message });
+    }
+  }
+
+  function findReactComponentInstance(seedEl, predicate) {
+    let el = seedEl;
+    while (el) {
+      const keys = Object.keys(el);
+      const fiberKey = keys.find((k) => k.startsWith("__reactFiber$") || k.startsWith("__reactInternalInstance$"));
+      const fiber = fiberKey ? el[fiberKey] : null;
+
+      let node = fiber;
+      while (node) {
+        const candidate = node.stateNode;
+        if (candidate && predicate(candidate)) return candidate;
+        node = node.return;
+      }
+
+      el = el.parentElement;
+    }
+
+    return null;
   }
 
   function captureAuthHeaders(url, headers = {}) {

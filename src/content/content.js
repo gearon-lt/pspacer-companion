@@ -202,7 +202,7 @@ async function persistTerritoryAndLot() {
   await safeSendMessage({ type: "SET_RULES", rules: nextRules });
 
   if (prevLotId !== parkingLotId) {
-    triggerReactSharedSpacesFetch();
+    window.postMessage({ source: TARGET, type: "TRIGGER_SHARED_SPACES_FETCH" }, "*");
   }
 }
 
@@ -272,77 +272,6 @@ function requestLookups() {
 
     window.postMessage({ source: TARGET, type: "FETCH_LOOKUPS", requestId }, "*");
   });
-}
-
-let cachedFetchInstance = null;
-
-function triggerReactSharedSpacesFetch() {
-  try {
-    const predicate = (inst) => typeof inst?.fetchSharedSpaces === "function" || typeof inst?.setLot === "function";
-
-    const seed = territoryControlRef
-      || document.querySelector('input[id^="react-select-"][id$="-input"]')
-      || document.querySelector("form.ExchangesForm")
-      || document.querySelector("#root");
-
-    let instance = null;
-
-    if (cachedFetchInstance && predicate(cachedFetchInstance)) {
-      instance = cachedFetchInstance;
-    }
-
-    if (!instance && seed) {
-      instance = findReactComponentInstance(seed, predicate);
-    }
-
-    if (!instance) {
-      instance = findAnyReactComponentInstance(predicate);
-    }
-
-    if (!instance) return;
-    cachedFetchInstance = instance;
-
-    if (typeof instance.fetchSharedSpaces === "function") {
-      instance.fetchSharedSpaces();
-      return;
-    }
-
-    if (typeof instance.setLot === "function") {
-      const currentLot = instance.state?.lot ?? instance.props?.lot ?? null;
-      instance.setLot(currentLot);
-    }
-  } catch (_) {
-    // no-op
-  }
-}
-
-function findReactComponentInstance(seedEl, predicate) {
-  let el = seedEl;
-  while (el) {
-    const keys = Object.keys(el);
-    const fiberKey = keys.find((k) => k.startsWith("__reactFiber$") || k.startsWith("__reactInternalInstance$"));
-    const fiber = fiberKey ? el[fiberKey] : null;
-
-    let node = fiber;
-    while (node) {
-      const candidate = node.stateNode;
-      if (candidate && predicate(candidate)) return candidate;
-      node = node.return;
-    }
-
-    el = el.parentElement;
-  }
-
-  return null;
-}
-
-function findAnyReactComponentInstance(predicate) {
-  const all = document.querySelectorAll("*");
-  for (const el of all) {
-    const found = findReactComponentInstance(el, predicate);
-    if (found) return found;
-  }
-  return null;
 }
 
 function findTerritoryControl() {
