@@ -93,7 +93,6 @@ async function bootstrapPageParkingLotControl() {
     if (lotSelectRef || attempts >= 30) clearInterval(timer);
   }, 500);
 
-  setInterval(syncLotVisibilityWithTerritoryMenu, 200);
 }
 
 async function refreshLookupsSilently() {
@@ -152,14 +151,12 @@ function mountOrUpdateControl() {
 
   renderLotOptions();
   syncLotSelectionFromRules();
-  syncLotVisibilityWithTerritoryMenu();
 }
 
 function onTerritoryChanged() {
   setTimeout(() => {
     renderLotOptions();
     persistTerritoryAndLot();
-    syncLotVisibilityWithTerritoryMenu();
   }, 50);
 }
 
@@ -281,30 +278,36 @@ function requestLookups() {
 }
 
 function triggerSharingsRefresh() {
-  if (!territoryControlRef) return;
-
   try {
-    const form = territoryControlRef.closest("form");
-    territoryControlRef.focus?.();
+    const form = territoryControlRef?.closest("form") || document.querySelector("form.ExchangesForm") || document.querySelector("form");
 
-    territoryControlRef.dispatchEvent(new Event("input", { bubbles: true }));
-    territoryControlRef.dispatchEvent(new Event("change", { bubbles: true }));
-    territoryControlRef.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
-    territoryControlRef.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-    territoryControlRef.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-    territoryControlRef.dispatchEvent(new Event("blur", { bubbles: true }));
+    // 1) Nudge react-select territory input (without changing chosen value).
+    if (territoryControlRef) {
+      territoryControlRef.focus?.();
+      const prev = territoryControlRef.value ?? "";
+      territoryControlRef.value = `${prev} `;
+      territoryControlRef.dispatchEvent(new Event("input", { bubbles: true }));
+      territoryControlRef.value = prev;
+      territoryControlRef.dispatchEvent(new Event("input", { bubbles: true }));
+      territoryControlRef.dispatchEvent(new Event("change", { bubbles: true }));
+      territoryControlRef.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+      territoryControlRef.dispatchEvent(new Event("blur", { bubbles: true }));
+    }
 
+    // 2) Nudge date fields as the page reliably fetches on date/territory changes.
+    const dateInputs = [...document.querySelectorAll('input[type="date"], input[id*="date" i], input[name*="date" i]')];
+    for (const input of dateInputs.slice(0, 2)) {
+      const v = input.value;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+      input.value = v;
+      input.dispatchEvent(new Event("blur", { bubbles: true }));
+    }
+
+    // 3) Form-level change as fallback.
     form?.dispatchEvent(new Event("input", { bubbles: true }));
     form?.dispatchEvent(new Event("change", { bubbles: true }));
   } catch (_) {}
-}
-
-function syncLotVisibilityWithTerritoryMenu() {
-  const wrapper = document.querySelector("#pspacer-page-lot-filter");
-  if (!wrapper || !territoryControlRef) return;
-
-  const expanded = territoryControlRef.getAttribute("aria-expanded") === "true";
-  wrapper.style.visibility = expanded ? "hidden" : "visible";
 }
 
 function findTerritoryControl() {
