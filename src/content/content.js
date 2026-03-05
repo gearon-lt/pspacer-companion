@@ -8,7 +8,8 @@ let parkingLots = [];
 let territoryControlRef = null;
 let territoryHostRef = null;
 let lotSelectRef = null;
-let parkingNameInputRef = null;
+let parkingNamePresetRef = null;
+let parkingNameCustomRef = null;
 let lastTerritoryResolved = null;
 
 injectPageHook();
@@ -91,7 +92,7 @@ async function bootstrapPageParkingLotControl() {
   const timer = setInterval(() => {
     attempts += 1;
     mountOrUpdateControl();
-    if (lotSelectRef && parkingNameInputRef || attempts >= 30) clearInterval(timer);
+    if (lotSelectRef && parkingNamePresetRef || attempts >= 30) clearInterval(timer);
   }, 500);
 
 }
@@ -157,32 +158,44 @@ function mountOrUpdateControl() {
     const nameGridItem = document.createElement("div");
     nameGridItem.className = "MuiGrid-root MuiGrid-item MuiGrid-grid-xs-12 css-15j76c0";
 
-    parkingNameInputRef = document.createElement("input");
-    parkingNameInputRef.type = "text";
-    parkingNameInputRef.setAttribute("list", "pspacer-parking-name-presets");
-    parkingNameInputRef.placeholder = "El.";
-    parkingNameInputRef.style.width = "100%";
-    parkingNameInputRef.style.minHeight = "38px";
-    parkingNameInputRef.style.padding = "8px 10px";
-    parkingNameInputRef.style.border = "1px solid #d9d9d9";
-    parkingNameInputRef.style.borderRadius = "4px";
-    parkingNameInputRef.style.background = "#fff";
-    parkingNameInputRef.addEventListener("change", persistTerritoryAndLot);
-    parkingNameInputRef.addEventListener("keydown", (e) => {
+    parkingNamePresetRef = document.createElement("select");
+    parkingNamePresetRef.style.width = "100%";
+    parkingNamePresetRef.style.minHeight = "38px";
+    parkingNamePresetRef.style.padding = "8px 10px";
+    parkingNamePresetRef.style.border = "1px solid #d9d9d9";
+    parkingNamePresetRef.style.borderRadius = "4px";
+    parkingNamePresetRef.style.background = "#fff";
+    parkingNamePresetRef.append(new Option("Any", ""));
+    parkingNamePresetRef.append(new Option("El.", "El."));
+    parkingNamePresetRef.append(new Option("El.stotelė", "El.stotelė"));
+    parkingNamePresetRef.append(new Option("El.lizdas", "El.lizdas"));
+    parkingNamePresetRef.append(new Option("Custom…", "__custom__"));
+    parkingNamePresetRef.addEventListener("change", () => {
+      toggleParkingNameCustomInput();
+      persistTerritoryAndLot();
+    });
+
+    parkingNameCustomRef = document.createElement("input");
+    parkingNameCustomRef.type = "text";
+    parkingNameCustomRef.placeholder = "Custom parking name";
+    parkingNameCustomRef.style.width = "100%";
+    parkingNameCustomRef.style.minHeight = "38px";
+    parkingNameCustomRef.style.padding = "8px 10px";
+    parkingNameCustomRef.style.border = "1px solid #d9d9d9";
+    parkingNameCustomRef.style.borderRadius = "4px";
+    parkingNameCustomRef.style.background = "#fff";
+    parkingNameCustomRef.style.marginTop = "6px";
+    parkingNameCustomRef.style.display = "none";
+    parkingNameCustomRef.addEventListener("change", persistTerritoryAndLot);
+    parkingNameCustomRef.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
         e.preventDefault();
         persistTerritoryAndLot();
       }
     });
 
-    const presets = document.createElement("datalist");
-    presets.id = "pspacer-parking-name-presets";
-    presets.append(new Option("El."));
-    presets.append(new Option("El.stotelė"));
-    presets.append(new Option("El.lizdas"));
-
-    nameGridItem.appendChild(parkingNameInputRef);
-    nameGridItem.appendChild(presets);
+    nameGridItem.appendChild(parkingNamePresetRef);
+    nameGridItem.appendChild(parkingNameCustomRef);
     nameWrapper.appendChild(nameLabel);
     nameWrapper.appendChild(nameGridItem);
     lotWrapper.insertAdjacentElement("afterend", nameWrapper);
@@ -223,15 +236,24 @@ function syncLotSelectionFromRules() {
   if ([...lotSelectRef.options].some((o) => o.value === lotId)) lotSelectRef.value = lotId;
   else lotSelectRef.value = "";
 
-  if (parkingNameInputRef) {
-    parkingNameInputRef.value = currentRules.filter.parkingName || "";
+  if (parkingNamePresetRef) {
+    const parkingName = currentRules.filter.parkingName || "";
+    const presets = ["", "El.", "El.stotelė", "El.lizdas"];
+    if (presets.includes(parkingName)) {
+      parkingNamePresetRef.value = parkingName;
+      if (parkingNameCustomRef) parkingNameCustomRef.value = "";
+    } else {
+      parkingNamePresetRef.value = "__custom__";
+      if (parkingNameCustomRef) parkingNameCustomRef.value = parkingName;
+    }
+    toggleParkingNameCustomInput();
   }
 }
 
 async function persistTerritoryAndLot() {
   const territoryId = getSelectedTerritoryId() || null;
   const parkingLotId = lotSelectRef?.value || null;
-  const parkingName = normalizeParkingName(parkingNameInputRef?.value);
+  const parkingName = getParkingNameValue();
 
   const base = (await safeSendMessage({ type: "GET_RULES" }))?.rules || {};
   const prevLotId = base?.filter?.parkingLotId || null;
@@ -253,6 +275,20 @@ async function persistTerritoryAndLot() {
   if (prevLotId !== parkingLotId || prevParkingName !== parkingName) {
     window.postMessage({ source: TARGET, type: "TRIGGER_SHARED_SPACES_FETCH" }, "*");
   }
+}
+
+function getParkingNameValue() {
+  if (!parkingNamePresetRef) return null;
+  if (parkingNamePresetRef.value === "__custom__") {
+    return normalizeParkingName(parkingNameCustomRef?.value);
+  }
+  return normalizeParkingName(parkingNamePresetRef.value);
+}
+
+function toggleParkingNameCustomInput() {
+  if (!parkingNamePresetRef || !parkingNameCustomRef) return;
+  const custom = parkingNamePresetRef.value === "__custom__";
+  parkingNameCustomRef.style.display = custom ? "block" : "none";
 }
 
 function normalizeParkingName(value) {
