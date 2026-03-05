@@ -9,7 +9,6 @@ let territoryControlRef = null;
 let territoryHostRef = null;
 let lotSelectRef = null;
 let parkingNamePresetRef = null;
-let parkingNameCustomRef = null;
 let lastTerritoryResolved = null;
 
 injectPageHook();
@@ -169,33 +168,9 @@ function mountOrUpdateControl() {
     parkingNamePresetRef.append(new Option("El.", "El."));
     parkingNamePresetRef.append(new Option("El.stotelė", "El.stotelė"));
     parkingNamePresetRef.append(new Option("El.lizdas", "El.lizdas"));
-    parkingNamePresetRef.append(new Option("Custom…", "__custom__"));
-    parkingNamePresetRef.addEventListener("change", () => {
-      toggleParkingNameCustomInput();
-      persistTerritoryAndLot();
-    });
-
-    parkingNameCustomRef = document.createElement("input");
-    parkingNameCustomRef.type = "text";
-    parkingNameCustomRef.placeholder = "Custom parking name";
-    parkingNameCustomRef.style.width = "100%";
-    parkingNameCustomRef.style.minHeight = "38px";
-    parkingNameCustomRef.style.padding = "8px 10px";
-    parkingNameCustomRef.style.border = "1px solid #d9d9d9";
-    parkingNameCustomRef.style.borderRadius = "4px";
-    parkingNameCustomRef.style.background = "#fff";
-    parkingNameCustomRef.style.marginTop = "6px";
-    parkingNameCustomRef.style.display = "none";
-    parkingNameCustomRef.addEventListener("change", persistTerritoryAndLot);
-    parkingNameCustomRef.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        persistTerritoryAndLot();
-      }
-    });
+    parkingNamePresetRef.addEventListener("change", persistTerritoryAndLot);
 
     nameGridItem.appendChild(parkingNamePresetRef);
-    nameGridItem.appendChild(parkingNameCustomRef);
     nameWrapper.appendChild(nameLabel);
     nameWrapper.appendChild(nameGridItem);
     lotWrapper.insertAdjacentElement("afterend", nameWrapper);
@@ -239,14 +214,7 @@ function syncLotSelectionFromRules() {
   if (parkingNamePresetRef) {
     const parkingName = currentRules.filter.parkingName || "";
     const presets = ["", "El.", "El.stotelė", "El.lizdas"];
-    if (presets.includes(parkingName)) {
-      parkingNamePresetRef.value = parkingName;
-      if (parkingNameCustomRef) parkingNameCustomRef.value = "";
-    } else {
-      parkingNamePresetRef.value = "__custom__";
-      if (parkingNameCustomRef) parkingNameCustomRef.value = parkingName;
-    }
-    toggleParkingNameCustomInput();
+    parkingNamePresetRef.value = presets.includes(parkingName) ? parkingName : "";
   }
 }
 
@@ -279,16 +247,7 @@ async function persistTerritoryAndLot() {
 
 function getParkingNameValue() {
   if (!parkingNamePresetRef) return null;
-  if (parkingNamePresetRef.value === "__custom__") {
-    return normalizeParkingName(parkingNameCustomRef?.value);
-  }
   return normalizeParkingName(parkingNamePresetRef.value);
-}
-
-function toggleParkingNameCustomInput() {
-  if (!parkingNamePresetRef || !parkingNameCustomRef) return;
-  const custom = parkingNamePresetRef.value === "__custom__";
-  parkingNameCustomRef.style.display = custom ? "block" : "none";
 }
 
 function normalizeParkingName(value) {
