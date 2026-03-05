@@ -57,8 +57,8 @@ function renderOverlay(payload = {}) {
   const summary = document.querySelector("#pspacer-summary");
   if (!status || !summary) return;
 
-  const { endpoint, total = 0, kept = 0, dropped = 0, sample = [] } = payload;
-  status.textContent = endpoint ? `Intercepted: ${endpoint}` : "Listings processed";
+  const { total = 0, kept = 0, dropped = 0, sample = [] } = payload;
+  status.textContent = "Listings processed";
 
   const lines = [
     `<div>Total: <b>${total}</b></div>`,
