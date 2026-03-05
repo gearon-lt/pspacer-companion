@@ -103,6 +103,7 @@ function mountOrUpdateControl() {
     territoryControlRef.addEventListener("change", onTerritoryChanged, true);
     territoryControlRef.addEventListener("input", onTerritoryChanged, true);
     territoryControlRef.addEventListener("blur", onTerritoryChanged, true);
+    territoryControlRef.addEventListener("focus", onTerritoryChanged, true);
     territoryControlRef.addEventListener("click", () => setTimeout(onTerritoryChanged, 300), true);
   }
 
@@ -140,12 +141,14 @@ function mountOrUpdateControl() {
 
   renderLotOptions();
   syncLotSelectionFromRules();
+  syncLotVisibilityWithTerritoryMenu();
 }
 
 function onTerritoryChanged() {
   setTimeout(() => {
     renderLotOptions();
     persistTerritoryAndLot();
+    syncLotVisibilityWithTerritoryMenu();
   }, 50);
 }
 
@@ -260,6 +263,13 @@ function requestLookups() {
   });
 }
 
+function syncLotVisibilityWithTerritoryMenu() {
+  const wrapper = document.querySelector("#pspacer-page-lot-filter");
+  if (!wrapper || !territoryControlRef) return;
+
+  const expanded = territoryControlRef.getAttribute("aria-expanded") === "true";
+  wrapper.style.visibility = expanded ? "hidden" : "visible";
+}
 
 function findTerritoryControl() {
   const direct = [
