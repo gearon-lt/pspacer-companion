@@ -187,6 +187,7 @@ async function persistTerritoryAndLot() {
   const parkingLotId = lotSelectRef?.value || null;
 
   const base = (await safeSendMessage({ type: "GET_RULES" }))?.rules || {};
+  const prevLotId = base?.filter?.parkingLotId || null;
 
   const nextRules = {
     ...base,
@@ -199,6 +200,10 @@ async function persistTerritoryAndLot() {
 
   currentRules = nextRules;
   await safeSendMessage({ type: "SET_RULES", rules: nextRules });
+
+  if (prevLotId !== parkingLotId) {
+    triggerReactSharedSpacesFetch();
+  }
 }
 
 function getSelectedTerritoryId() {
@@ -267,6 +272,51 @@ function requestLookups() {
 
     window.postMessage({ source: TARGET, type: "FETCH_LOOKUPS", requestId }, "*");
   });
+}
+
+function triggerReactSharedSpacesFetch() {
+  try {
+    const seed = territoryControlRef || document.querySelector('input[id^="react-select-"][id$="-input"]');
+    if (!seed) return;
+
+    const instance = findReactComponentInstance(seed, (inst) =>
+      typeof inst?.fetchSharedSpaces === "function" || typeof inst?.setLot === "function"
+    );
+
+    if (!instance) return;
+
+    if (typeof instance.fetchSharedSpaces === "function") {
+      instance.fetchSharedSpaces();
+      return;
+    }
+
+    if (typeof instance.setLot === "function") {
+      const currentLot = instance.state?.lot ?? instance.props?.lot ?? null;
+      instance.setLot(currentLot);
+    }
+  } catch (_) {
+    // no-op
+  }
+}
+
+function findReactComponentInstance(seedEl, predicate) {
+  let el = seedEl;
+  while (el) {
+    const keys = Object.keys(el);
+    const fiberKey = keys.find((k) => k.startsWith("__reactFiber$") || k.startsWith("__reactInternalInstance$"));
+    const fiber = fiberKey ? el[fiberKey] : null;
+
+    let node = fiber;
+    while (node) {
+      const candidate = node.stateNode;
+      if (candidate && predicate(candidate)) return candidate;
+      node = node.return;
+    }
+
+    el = el.parentElement;
+  }
+
+  return null;
 }
 
 function findTerritoryControl() {
