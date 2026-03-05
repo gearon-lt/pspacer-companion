@@ -1,0 +1,38 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PSpacer Companion</title>
+    <style>
+      body { font: 13px/1.4 -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif; margin: 12px; min-width: 280px; }
+      h1 { font-size: 14px; margin: 0 0 10px; }
+      label { display: block; margin-top: 8px; }
+      input { width: 100%; padding: 4px; box-sizing: border-box; }
+      button { margin-top: 12px; width: 100%; padding: 6px; }
+      .hint { color: #666; font-size: 12px; margin-top: 8px; }
+    </style>
+  </head>
+  <body>
+    <h1>PSpacer Companion</h1>
+
+    <label>
+      <input type="checkbox" id="enabled" /> Enable filtering
+    </label>
+
+    <label>
+      Min price/hour
+      <input id="minPricePerHour" type="number" min="0" step="1" placeholder="e.g. 2" />
+    </label>
+
+    <label>
+      Max distance (meters)
+      <input id="maxDistanceMeters" type="number" min="0" step="50" placeholder="e.g. 1500" />
+    </label>
+
+    <button id="save">Save rules</button>
+    <div class="hint">Reload spacer.click tab after changing rules.</div>
+
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>
