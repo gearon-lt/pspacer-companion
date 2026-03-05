@@ -7,8 +7,8 @@
     "default_title": "PSpacer Companion",
     "default_popup": "src/popup/popup.html",
     "default_icon": {
-      "16": "assets/icons/logo.svg",
-      "32": "assets/icons/logo.svg"
+      "16": "assets/icons/icon-16.png",
+      "32": "assets/icons/icon-32.png"
     }
   },
   "permissions": [
@@ -50,9 +50,9 @@
     }
   ],
   "icons": {
-    "16": "assets/icons/logo.svg",
-    "32": "assets/icons/logo.svg",
-    "48": "assets/icons/logo.svg",
-    "128": "assets/icons/logo.svg"
+    "16": "assets/icons/icon-16.png",
+    "32": "assets/icons/icon-32.png",
+    "48": "assets/icons/icon-48.png",
+    "128": "assets/icons/icon-128.png"
   }
 }
