@@ -6,6 +6,7 @@ let currentRules = null;
 let territories = [];
 let parkingLots = [];
 let territoryControlRef = null;
+let territoryHostRef = null;
 let lotSelectRef = null;
 
 injectPageHook();
@@ -37,6 +38,7 @@ window.addEventListener("message", async (event) => {
 
   if (type === "FILTERED_LISTING_BATCH") {
     renderOverlay(payload);
+    if (!parkingLots.length) refreshLookupsSilently();
     return;
   }
 
@@ -66,19 +68,23 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 });
 
 async function bootstrapPageParkingLotControl() {
-  try {
-    const lookups = await requestLookups();
-    territories = dedupeById(lookups?.territories || []);
-    parkingLots = dedupeById(lookups?.parkingLots || []);
-  } catch (_) {}
+  await refreshLookupsSilently();
 
-  // Lightweight retry loop to avoid heavy full-DOM mutation observer.
   let attempts = 0;
   const timer = setInterval(() => {
     attempts += 1;
     mountOrUpdateControl();
     if (lotSelectRef || attempts >= 30) clearInterval(timer);
   }, 500);
+}
+
+async function refreshLookupsSilently() {
+  try {
+    const lookups = await requestLookups();
+    territories = dedupeById(lookups?.territories || []);
+    parkingLots = dedupeById(lookups?.parkingLots || []);
+    renderLotOptions();
+  } catch (_) {}
 }
 
 function mountOrUpdateControl() {
@@ -93,17 +99,12 @@ function mountOrUpdateControl() {
     territoryControlRef.addEventListener("click", () => setTimeout(onTerritoryChanged, 300), true);
   }
 
+  territoryHostRef = findTerritoryHost(territoryControl);
+
   if (!lotSelectRef || !document.contains(lotSelectRef)) {
     const wrapper = document.createElement("div");
     wrapper.id = "pspacer-page-lot-filter";
-    wrapper.style.position = "fixed";
-    wrapper.style.zIndex = "99999";
-    wrapper.style.background = "#fff";
-    wrapper.style.border = "1px solid #d9d9d9";
-    wrapper.style.borderRadius = "6px";
-    wrapper.style.padding = "8px";
-    wrapper.style.boxShadow = "0 2px 8px rgba(0,0,0,0.12)";
-    wrapper.style.minWidth = "260px";
+    wrapper.style.marginTop = "8px";
 
     const label = document.createElement("label");
     label.textContent = "Parking lot";
@@ -113,33 +114,23 @@ function mountOrUpdateControl() {
 
     lotSelectRef = document.createElement("select");
     lotSelectRef.style.width = "100%";
-    lotSelectRef.style.minHeight = "34px";
+    lotSelectRef.style.minHeight = "36px";
     lotSelectRef.style.padding = "4px";
     lotSelectRef.addEventListener("change", persistTerritoryAndLot);
 
     wrapper.appendChild(label);
     wrapper.appendChild(lotSelectRef);
-    document.body.appendChild(wrapper);
+    territoryHostRef?.insertAdjacentElement("afterend", wrapper);
   }
 
-  positionLotControlNearTerritory(territoryControl);
   renderLotOptions();
   syncLotSelectionFromRules();
 }
 
 function onTerritoryChanged() {
-  if (territoryControlRef) positionLotControlNearTerritory(territoryControlRef);
   renderLotOptions();
   persistTerritoryAndLot();
 }
-
-window.addEventListener("scroll", () => {
-  if (territoryControlRef) positionLotControlNearTerritory(territoryControlRef);
-}, { passive: true });
-
-window.addEventListener("resize", () => {
-  if (territoryControlRef) positionLotControlNearTerritory(territoryControlRef);
-});
 
 function renderLotOptions() {
   if (!lotSelectRef) return;
@@ -201,8 +192,14 @@ function getSelectedTerritoryId() {
 
   if (territories.some((t) => t.id === raw)) return raw;
 
-  const byName = territories.find((t) => t.name.trim().toLowerCase() === raw.toLowerCase());
-  return byName?.id || null;
+  const norm = (s) => String(s || "").toLowerCase().replace(/\s+/g, " ").trim();
+  const rawNorm = norm(raw);
+
+  const exact = territories.find((t) => norm(t.name) === rawNorm);
+  if (exact) return exact.id;
+
+  const contains = territories.find((t) => norm(t.name).includes(rawNorm) || rawNorm.includes(norm(t.name)));
+  return contains?.id || null;
 }
 
 function requestLookups() {
@@ -228,19 +225,6 @@ function requestLookups() {
   });
 }
 
-function positionLotControlNearTerritory(control) {
-  const wrapper = document.querySelector("#pspacer-page-lot-filter");
-  if (!wrapper || !control) return;
-
-  const rect = control.getBoundingClientRect();
-  const top = Math.round(rect.bottom + 8);
-  const left = Math.round(rect.left);
-  const width = Math.max(260, Math.round(rect.width));
-
-  wrapper.style.top = `${top}px`;
-  wrapper.style.left = `${left}px`;
-  wrapper.style.width = `${width}px`;
-}
 
 function findTerritoryControl() {
   const direct = [
@@ -248,6 +232,7 @@ function findTerritoryControl() {
     'select[name*="territory" i]',
     'input[id*="territory" i]',
     'input[name*="territory" i]',
+    'input[id^="react-select-"][id$="-input"]',
     '[role="combobox"][aria-label*="territory" i]'
   ];
   for (const s of direct) {
@@ -268,16 +253,16 @@ function findTerritoryControl() {
 }
 
 function findTerritoryHost(control) {
+  const explicit = control.closest(".form-controll-select");
+  if (explicit) return explicit;
+
   let node = control;
   while (node && node !== document.body) {
     const text = (node.textContent || "").toLowerCase();
     const hasTerritoryLabel = text.includes("stovėjimo aikštelė") || text.includes("territory");
     const hasDateFields = text.includes("pradžia") || text.includes("pabaiga") || text.includes("from") || text.includes("to");
 
-    if (hasTerritoryLabel && !hasDateFields) {
-      return node;
-    }
-
+    if (hasTerritoryLabel && !hasDateFields) return node;
     node = node.parentElement;
   }
 
