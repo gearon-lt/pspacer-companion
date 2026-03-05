@@ -47,6 +47,12 @@ window.addEventListener("message", async (event) => {
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message?.type === "RULES_UPDATED") {
+    window.postMessage({ source: TARGET, type: "RULES", payload: message.rules }, "*");
+    sendResponse?.({ ok: true });
+    return false;
+  }
+
   if (message?.type !== "GET_LOOKUPS") return false;
 
   const requestId = crypto.randomUUID();

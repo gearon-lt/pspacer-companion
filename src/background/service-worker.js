@@ -5,8 +5,8 @@ const DEFAULT_RULES = {
   maxFetchCycles: 10,
   minItemCount: 5,
   filter: {
-    territoryId: null,
-    parkingLotId: null,
+    territoryId: "e551bf93-968b-4443-86b3-46b62c529f82",
+    parkingLotId: "32e0ddb0-626b-42d6-bcb2-9eb01bda5b94",
     parkingName: "El."
   }
 };
@@ -27,7 +27,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 
   if (message?.type === "SET_RULES") {
-    chrome.storage.sync.set({ rules: message.rules }).then(() => {
+    chrome.storage.sync.set({ rules: message.rules }).then(async () => {
+      const tabs = await chrome.tabs.query({ url: ["https://spacer.click/*", "https://*.spacer.click/*"] });
+      await Promise.allSettled(
+        tabs.map((tab) => chrome.tabs.sendMessage(tab.id, { type: "RULES_UPDATED", rules: message.rules }))
+      );
       sendResponse({ ok: true });
     });
     return true;
