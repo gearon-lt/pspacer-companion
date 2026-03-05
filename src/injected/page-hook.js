@@ -3,6 +3,7 @@
   const TARGET = "PSPACER_EXTENSION";
 
   let rules = null;
+  let authHeadersCache = {};
 
   requestRules();
 
@@ -37,6 +38,8 @@
     const [input, init = {}] = args;
     const url = typeof input === "string" ? input : input?.url;
 
+    captureAuthHeaders(url, flattenHeaders(input, init));
+
     if (!shouldIntercept(url, rules)) return originalFetch(...args);
 
     try {
@@ -66,6 +69,7 @@
   XMLHttpRequest.prototype.setRequestHeader = function patchedSetRequestHeader(name, value) {
     this.__pspacer_headers ||= {};
     this.__pspacer_headers[String(name).toLowerCase()] = String(value);
+    captureAuthHeaders(this.__pspacer_url, this.__pspacer_headers);
     return originalSetRequestHeader.call(this, name, value);
   };
 
@@ -100,16 +104,18 @@
   };
 
   async function fetchLookups() {
+    const headers = { ...authHeadersCache };
+
     const [territoriesResp, parkingLotsResp] = await Promise.all([
-      originalFetch("https://spacer.click/api/private-K20A-prod-3d807/v1/ParkingSpaces", { credentials: "include" }),
-      originalFetch("https://spacer.click/api/private-K20A-prod-3d807/v1/ParkingLots", { credentials: "include" })
+      originalFetch("https://spacer.click/api/private-K20A-prod-3d807/v1/ParkingSpaces", { credentials: "include", headers }),
+      originalFetch("https://spacer.click/api/private-K20A-prod-3d807/v1/ParkingLots", { credentials: "include", headers })
     ]);
 
     if (!territoriesResp.ok) {
-      throw new Error(`ParkingSpaces failed: ${territoriesResp.status} ${territoriesResp.statusText}`);
+      throw new Error(`ParkingSpaces failed: ${territoriesResp.status} ${territoriesResp.statusText}. Open spacer dashboard first to warm auth.`);
     }
     if (!parkingLotsResp.ok) {
-      throw new Error(`ParkingLots failed: ${parkingLotsResp.status} ${parkingLotsResp.statusText}`);
+      throw new Error(`ParkingLots failed: ${parkingLotsResp.status} ${parkingLotsResp.statusText}. Open spacer dashboard first to warm auth.`);
     }
 
     const territoriesRaw = await territoriesResp.json();
@@ -135,6 +141,18 @@
     if (Array.isArray(payload?.data)) return payload.data;
     if (Array.isArray(payload?.results)) return payload.results;
     return [];
+  }
+
+  function captureAuthHeaders(url, headers = {}) {
+    if (!url || !String(url).includes("/api/private-")) return;
+
+    const allowed = ["authorization", "x-api-key", "x-authorization", "x-client-id", "x-tenant-id"];
+    for (const [k, v] of Object.entries(headers || {})) {
+      const key = String(k).toLowerCase();
+      if (!allowed.includes(key)) continue;
+      if (v == null || v === "") continue;
+      authHeadersCache[key] = String(v);
+    }
   }
 
   function shouldIntercept(url = "", activeRules) {
@@ -166,7 +184,7 @@
 
       const resp = await originalFetch(nextUrl.toString(), {
         method: "GET",
-        headers: headersObj,
+        headers: { ...authHeadersCache, ...headersObj },
         credentials: "include"
       });
 
