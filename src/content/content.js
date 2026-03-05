@@ -31,6 +31,11 @@ window.addEventListener("message", async (event) => {
 
   if (type === "FILTERED_LISTING_BATCH") {
     renderOverlay(payload);
+    return;
+  }
+
+  if (type === "LOG") {
+    chrome.runtime.sendMessage({ type: "LOG", payload });
   }
 });
 

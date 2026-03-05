@@ -2,11 +2,6 @@
   const SOURCE = "PSPACER_PAGE";
   const TARGET = "PSPACER_EXTENSION";
 
-  const API_PATTERNS = [
-    /\/api\/.*sharing/i,
-    /\/api\/.*listing/i
-  ];
-
   let rules = null;
 
   requestRules();
@@ -24,137 +19,157 @@
 
   const originalFetch = window.fetch;
   window.fetch = async (...args) => {
-    const response = await originalFetch(...args);
+    const [input, init = {}] = args;
+    const url = typeof input === "string" ? input : input?.url;
 
-    try {
-      const [input] = args;
-      const url = typeof input === "string" ? input : input?.url;
-      if (!isCandidateEndpoint(url)) return response;
-
-      const clone = response.clone();
-      const contentType = clone.headers.get("content-type") || "";
-      if (!contentType.includes("application/json")) return response;
-
-      const data = await clone.json();
-      const listings = extractListings(data);
-      const filtered = applyRules(listings, rules);
-
-      emitFilteredBatch({
-        endpoint: url,
-        total: listings.length,
-        kept: filtered.length,
-        dropped: listings.length - filtered.length,
-        sample: filtered.slice(0, 5)
-      });
-
-      // NOTE: Skeleton sends telemetry only.
-      // Future: rebuild Response with rewritten payload if you want in-place UI filtering.
-    } catch (err) {
-      emitLog({ type: "fetch_hook_error", message: err?.message });
+    if (!isSharingsRequest(url, rules)) {
+      return originalFetch(...args);
     }
 
-    return response;
+    const reqUrl = new URL(url, window.location.origin);
+
+    if (!shouldFilterByTerritory(reqUrl, rules)) {
+      emitLog({ type: "skip_territory_mismatch", url });
+      return originalFetch(...args);
+    }
+
+    try {
+      const baseOffset = parseInt(reqUrl.searchParams.get("Offset") || "0", 10) || 0;
+      const headersObj = flattenHeaders(input, init);
+      const out = await fetchAndFilter(reqUrl, headersObj, baseOffset, rules);
+
+      emitFilteredBatch({
+        endpoint: reqUrl.toString(),
+        total: out.totalFetched,
+        kept: out.filteredItems.length,
+        dropped: out.totalFetched - out.filteredItems.length,
+        sample: out.filteredItems.slice(0, 5)
+      });
+
+      return new Response(JSON.stringify(out.payload), {
+        status: 200,
+        headers: {
+          "content-type": "application/json; charset=utf-8"
+        }
+      });
+    } catch (err) {
+      emitLog({ type: "fetch_hook_error", message: err?.message });
+      return originalFetch(...args);
+    }
   };
 
-  const originalOpen = XMLHttpRequest.prototype.open;
-  const originalSend = XMLHttpRequest.prototype.send;
-
-  XMLHttpRequest.prototype.open = function patchedOpen(method, url, ...rest) {
-    this.__pspacer_url = url;
-    this.__pspacer_method = method;
-    return originalOpen.call(this, method, url, ...rest);
-  };
-
-  XMLHttpRequest.prototype.send = function patchedSend(...args) {
-    this.addEventListener("load", () => {
-      try {
-        const url = this.__pspacer_url;
-        if (!isCandidateEndpoint(url)) return;
-
-        const type = this.getResponseHeader("content-type") || "";
-        if (!type.includes("application/json")) return;
-
-        const data = JSON.parse(this.responseText);
-        const listings = extractListings(data);
-        const filtered = applyRules(listings, rules);
-
-        emitFilteredBatch({
-          endpoint: url,
-          total: listings.length,
-          kept: filtered.length,
-          dropped: listings.length - filtered.length,
-          sample: filtered.slice(0, 5)
-        });
-      } catch (err) {
-        emitLog({ type: "xhr_hook_error", message: err?.message });
-      }
-    });
-
-    return originalSend.call(this, ...args);
-  };
-
-  function requestRules() {
-    window.postMessage({
-      source: SOURCE,
-      type: "REQUEST_RULES"
-    }, "*");
+  function shouldFilterByTerritory(reqUrl, activeRules) {
+    const wanted = activeRules?.filter?.territoryId;
+    const actual = reqUrl.searchParams.get("TerritoryId");
+    if (!wanted || !actual) return true;
+    return wanted === actual;
   }
 
-  function isCandidateEndpoint(url = "") {
-    return API_PATTERNS.some((pattern) => pattern.test(url));
+  function isSharingsRequest(url = "", activeRules) {
+    const pattern = activeRules?.urlPattern || "/AssignSharedSpace/Sharings?";
+    return url.includes(pattern);
   }
 
-  function extractListings(payload) {
-    if (!payload || typeof payload !== "object") return [];
+  async function fetchAndFilter(baseUrl, headersObj, baseOffset, activeRules) {
+    const pageSize = Number(activeRules?.pageSize ?? 200);
+    const maxFetchCycles = Number(activeRules?.maxFetchCycles ?? 10);
+    const minItemCount = Number(activeRules?.minItemCount ?? 5);
 
-    // Adapt these field paths to real Spacer API payloads.
-    if (Array.isArray(payload)) return payload;
-    if (Array.isArray(payload.items)) return payload.items;
-    if (Array.isArray(payload.data)) return payload.data;
-    if (Array.isArray(payload.data?.items)) return payload.data.items;
-    if (Array.isArray(payload.results)) return payload.results;
+    let root = null;
+    const filteredItems = [];
+    let totalFetched = 0;
 
-    return [];
-  }
+    for (let fetchCycle = 0; fetchCycle < maxFetchCycles; fetchCycle++) {
+      const offset = baseOffset + fetchCycle * pageSize;
+      const nextUrl = new URL(baseUrl.toString());
+      nextUrl.searchParams.set("Limit", String(pageSize));
+      nextUrl.searchParams.set("Offset", String(offset));
 
-  function applyRules(listings, activeRules) {
-    if (!Array.isArray(listings)) return [];
-    if (!activeRules?.enabled) return listings;
+      const resp = await originalFetch(nextUrl.toString(), {
+        method: "GET",
+        headers: headersObj,
+        credentials: "include"
+      });
 
-    return listings.filter((item) => {
-      const price = item?.pricePerHour ?? item?.price?.hourly ?? null;
-      if (activeRules.minPricePerHour != null && price != null && price < activeRules.minPricePerHour) {
-        return false;
-      }
-      if (activeRules.minPricePerHour != null && price == null && !activeRules.includeUnknownPrice) {
-        return false;
-      }
-
-      const distance = item?.distanceMeters ?? item?.distance ?? null;
-      if (activeRules.maxDistanceMeters != null && distance != null && distance > activeRules.maxDistanceMeters) {
-        return false;
-      }
-      if (activeRules.maxDistanceMeters != null && distance == null && !activeRules.includeUnknownDistance) {
-        return false;
+      if (!resp.ok) {
+        const body = await resp.text();
+        throw new Error(`Failed to fetch data. ${resp.status} ${resp.statusText}. Body: ${body.slice(0, 500)}`);
       }
 
-      if (activeRules.allowedVehicleTypes?.length) {
-        const vehicleType = item?.vehicleType ?? item?.vehicle?.type ?? "";
-        if (!activeRules.allowedVehicleTypes.includes(vehicleType)) {
-          return false;
+      root = await resp.json();
+      const items = Array.isArray(root?.items) ? root.items : [];
+      totalFetched += items.length;
+
+      for (const item of items) {
+        if (matchesFilter(item, activeRules?.filter)) {
+          filteredItems.push(item);
         }
       }
 
-      return true;
-    });
+      if (filteredItems.length >= minItemCount) {
+        break;
+      }
+    }
+
+    const payload = {
+      ...(root || {}),
+      count: filteredItems.length,
+      items: filteredItems
+    };
+
+    if (filteredItems.length === 0) {
+      payload.nextOffset = 0;
+    }
+
+    return { payload, filteredItems, totalFetched };
+  }
+
+  function matchesFilter(item, filter = {}) {
+    const parkingSpaceName = asString(item?.parkingSpaceName);
+    const parkingLotId = asString(item?.parkingLotId);
+
+    if (filter?.parkingName) {
+      if (!parkingSpaceName.toLowerCase().includes(String(filter.parkingName).toLowerCase())) {
+        return false;
+      }
+    }
+
+    if (filter?.parkingLotId) {
+      if (parkingLotId !== String(filter.parkingLotId)) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  function asString(value) {
+    return value == null ? "" : String(value);
+  }
+
+  function flattenHeaders(input, init) {
+    const output = {};
+
+    const append = (headersLike) => {
+      if (!headersLike) return;
+      const h = new Headers(headersLike);
+      h.forEach((value, key) => {
+        output[key] = value;
+      });
+    };
+
+    if (input instanceof Request) append(input.headers);
+    append(init?.headers);
+
+    return output;
+  }
+
+  function requestRules() {
+    window.postMessage({ source: SOURCE, type: "REQUEST_RULES" }, "*");
   }
 
   function emitFilteredBatch(payload) {
-    window.postMessage({
-      source: SOURCE,
-      type: "FILTERED_LISTING_BATCH",
-      payload
-    }, "*");
+    window.postMessage({ source: SOURCE, type: "FILTERED_LISTING_BATCH", payload }, "*");
   }
 
   function emitLog(payload) {

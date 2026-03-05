@@ -1,10 +1,14 @@
 const DEFAULT_RULES = {
   enabled: true,
-  minPricePerHour: null,
-  maxDistanceMeters: null,
-  allowedVehicleTypes: [],
-  includeUnknownDistance: true,
-  includeUnknownPrice: true
+  urlPattern: "/AssignSharedSpace/Sharings?",
+  pageSize: 200,
+  maxFetchCycles: 10,
+  minItemCount: 5,
+  filter: {
+    territoryId: null,
+    parkingLotId: null,
+    parkingName: "El."
+  }
 };
 
 chrome.runtime.onInstalled.addListener(async () => {

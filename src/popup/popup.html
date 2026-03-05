@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>PSpacer Companion</title>
     <style>
-      body { font: 13px/1.4 -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif; margin: 12px; min-width: 280px; }
+      body { font: 13px/1.4 -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif; margin: 12px; min-width: 320px; }
       h1 { font-size: 14px; margin: 0 0 10px; }
       label { display: block; margin-top: 8px; }
       input { width: 100%; padding: 4px; box-sizing: border-box; }
@@ -16,18 +16,36 @@
   <body>
     <h1>PSpacer Companion</h1>
 
+    <label><input type="checkbox" id="enabled" /> Enable filtering</label>
+
     <label>
-      <input type="checkbox" id="enabled" /> Enable filtering
+      Page size (Limit)
+      <input id="pageSize" type="number" min="1" step="1" placeholder="200" />
     </label>
 
     <label>
-      Min price/hour
-      <input id="minPricePerHour" type="number" min="0" step="1" placeholder="e.g. 2" />
+      Max fetch cycles
+      <input id="maxFetchCycles" type="number" min="1" step="1" placeholder="10" />
     </label>
 
     <label>
-      Max distance (meters)
-      <input id="maxDistanceMeters" type="number" min="0" step="50" placeholder="e.g. 1500" />
+      Min matched items
+      <input id="minItemCount" type="number" min="1" step="1" placeholder="5" />
+    </label>
+
+    <label>
+      Territory ID (optional)
+      <input id="territoryId" type="text" placeholder="uuid" />
+    </label>
+
+    <label>
+      Parking lot ID (optional)
+      <input id="parkingLotId" type="text" placeholder="uuid" />
+    </label>
+
+    <label>
+      Parking name contains (optional)
+      <input id="parkingName" type="text" placeholder="El." />
     </label>
 
     <button id="save">Save rules</button>
