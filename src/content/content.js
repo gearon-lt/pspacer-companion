@@ -125,7 +125,7 @@ function mountOrUpdateControl() {
     wrapper.className = "form-controll-select MuiBox-root css-0";
 
     const label = document.createElement("label");
-    label.textContent = "Parking lot";
+    label.textContent = "Actual parking lot";
     label.className = "MuiFormLabel-root MuiInputLabel-root MuiInputLabel-animated MuiFormLabel-colorPrimary MuiInputLabel-root MuiInputLabel-animated input-label css-pmox31";
 
     const gridItem = document.createElement("div");
