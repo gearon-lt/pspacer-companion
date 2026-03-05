@@ -5,7 +5,11 @@
   "version": "0.1.0",
   "action": {
     "default_title": "PSpacer Companion",
-    "default_popup": "src/popup/popup.html"
+    "default_popup": "src/popup/popup.html",
+    "default_icon": {
+      "16": "assets/icons/logo.svg",
+      "32": "assets/icons/logo.svg"
+    }
   },
   "permissions": [
     "storage",
@@ -45,5 +49,10 @@
       ]
     }
   ],
-  "icons": {}
+  "icons": {
+    "16": "assets/icons/logo.svg",
+    "32": "assets/icons/logo.svg",
+    "48": "assets/icons/logo.svg",
+    "128": "assets/icons/logo.svg"
+  }
 }
