@@ -104,7 +104,16 @@ function mountOrUpdateControl() {
   if (!lotSelectRef || !document.contains(lotSelectRef)) {
     const wrapper = document.createElement("div");
     wrapper.id = "pspacer-page-lot-filter";
-    wrapper.style.marginTop = "8px";
+    wrapper.style.position = "absolute";
+    wrapper.style.left = "0";
+    wrapper.style.top = "calc(100% + 6px)";
+    wrapper.style.width = "320px";
+    wrapper.style.zIndex = "30";
+    wrapper.style.background = "#fff";
+    wrapper.style.padding = "6px";
+    wrapper.style.border = "1px solid #d9d9d9";
+    wrapper.style.borderRadius = "6px";
+    wrapper.style.boxShadow = "0 2px 8px rgba(0,0,0,0.12)";
 
     const label = document.createElement("label");
     label.textContent = "Parking lot";
@@ -116,11 +125,16 @@ function mountOrUpdateControl() {
     lotSelectRef.style.width = "100%";
     lotSelectRef.style.minHeight = "36px";
     lotSelectRef.style.padding = "4px";
+    lotSelectRef.style.pointerEvents = "auto";
     lotSelectRef.addEventListener("change", persistTerritoryAndLot);
 
     wrapper.appendChild(label);
     wrapper.appendChild(lotSelectRef);
-    territoryHostRef?.insertAdjacentElement("afterend", wrapper);
+    if (territoryHostRef) {
+      territoryHostRef.style.position = territoryHostRef.style.position || "relative";
+      territoryHostRef.style.overflow = "visible";
+      territoryHostRef.appendChild(wrapper);
+    }
   }
 
   renderLotOptions();
