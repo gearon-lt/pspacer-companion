@@ -112,9 +112,25 @@ function mountOrUpdateControl() {
     territoryControlRef = territoryControl;
     territoryControlRef.addEventListener("change", onTerritoryChanged, true);
     territoryControlRef.addEventListener("input", onTerritoryChanged, true);
-    territoryControlRef.addEventListener("blur", onTerritoryChanged, true);
-    territoryControlRef.addEventListener("focus", onTerritoryChanged, true);
-    territoryControlRef.addEventListener("click", () => setTimeout(onTerritoryChanged, 300), true);
+    territoryControlRef.addEventListener("blur", () => {
+      onTerritoryChanged();
+      setLotDropdownVisibility(true);
+    }, true);
+    territoryControlRef.addEventListener("focus", () => {
+      onTerritoryChanged();
+      setLotDropdownVisibility(false);
+    }, true);
+    territoryControlRef.addEventListener("click", () => {
+      setLotDropdownVisibility(false);
+      setTimeout(onTerritoryChanged, 300);
+    }, true);
+    territoryControlRef.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" || e.key === "Tab" || e.key === "Enter") {
+        setTimeout(() => setLotDropdownVisibility(true), 100);
+      } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        setLotDropdownVisibility(false);
+      }
+    }, true);
   }
 
   territoryHostRef = findTerritoryHost(territoryControl);
@@ -270,6 +286,12 @@ function requestLookups() {
 
     window.postMessage({ source: TARGET, type: "FETCH_LOOKUPS", requestId }, "*");
   });
+}
+
+function setLotDropdownVisibility(visible) {
+  const wrapper = document.querySelector("#pspacer-page-lot-filter");
+  if (!wrapper) return;
+  wrapper.style.visibility = visible ? "visible" : "hidden";
 }
 
 function findTerritoryControl() {
