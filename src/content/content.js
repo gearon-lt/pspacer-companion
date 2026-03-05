@@ -57,30 +57,12 @@ function renderOverlay(payload = {}) {
   const summary = document.querySelector("#pspacer-summary");
   if (!status || !summary) return;
 
-  const { total = 0, kept = 0, dropped = 0, sample = [] } = payload;
+  const { total = 0, kept = 0, dropped = 0 } = payload;
   status.textContent = "Listings processed";
 
-  const lines = [
+  summary.innerHTML = [
     `<div>Total: <b>${total}</b></div>`,
     `<div>Kept: <b>${kept}</b></div>`,
     `<div>Dropped: <b>${dropped}</b></div>`
-  ];
-
-  if (sample.length) {
-    const items = sample
-      .map((item) => `<li>${escapeHtml(item?.title ?? item?.id ?? "(unknown)")}</li>`)
-      .join("");
-    lines.push(`<details><summary>Sample kept entries</summary><ul>${items}</ul></details>`);
-  }
-
-  summary.innerHTML = lines.join("");
-}
-
-function escapeHtml(value) {
-  return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+  ].join("");
 }
