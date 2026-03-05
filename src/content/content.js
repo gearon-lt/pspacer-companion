@@ -110,7 +110,7 @@ function mountOrUpdateControl() {
     wrapper.appendChild(lotSelectRef);
 
     const host = findTerritoryHost(territoryControl) || territoryControl.parentElement;
-    host?.parentElement?.insertBefore(wrapper, host.nextSibling);
+    host?.insertAdjacentElement("afterend", wrapper);
   }
 
   renderLotOptions();
@@ -235,7 +235,20 @@ function findTerritoryControl() {
 }
 
 function findTerritoryHost(control) {
-  return control.closest(".ant-form-item, .form-group, .field, label, div");
+  let node = control;
+  while (node && node !== document.body) {
+    const text = (node.textContent || "").toLowerCase();
+    const hasTerritoryLabel = text.includes("stovėjimo aikštelė") || text.includes("territory");
+    const hasDateFields = text.includes("pradžia") || text.includes("pabaiga") || text.includes("from") || text.includes("to");
+
+    if (hasTerritoryLabel && !hasDateFields) {
+      return node;
+    }
+
+    node = node.parentElement;
+  }
+
+  return control.parentElement;
 }
 
 function dedupeById(items) {
