@@ -108,7 +108,8 @@ function mountOrUpdateControl() {
     wrapper.style.left = "0";
     wrapper.style.top = "calc(100% + 6px)";
     wrapper.style.width = "320px";
-    wrapper.style.zIndex = "30";
+    wrapper.style.zIndex = "2147483647";
+    wrapper.style.pointerEvents = "auto";
     wrapper.style.background = "#fff";
     wrapper.style.padding = "6px";
     wrapper.style.border = "1px solid #d9d9d9";
