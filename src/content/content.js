@@ -268,14 +268,15 @@ function getSelectedTerritoryId() {
   }
 
   raw = String(raw).trim();
-  if (!raw) return null;
-
-  const norm = (s) => String(s || "").toLowerCase().replace(/\s+/g, " ").trim();
 
   if (!raw && territoryHostRef) {
     const singleValue = territoryHostRef.querySelector(".css-1dimb5e-singleValue");
     raw = (singleValue?.textContent || "").trim();
   }
+
+  if (!raw) return null;
+
+  const norm = (s) => String(s || "").toLowerCase().replace(/\s+/g, " ").trim();
 
   if (territories.some((t) => t.id === raw)) {
     lastTerritoryResolved = raw;
