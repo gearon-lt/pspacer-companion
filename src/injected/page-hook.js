@@ -107,12 +107,12 @@
     const headers = { ...authHeadersCache };
 
     const [territoriesResp, parkingLotsResp] = await Promise.all([
-      originalFetch("https://spacer.click/api/private-K20A-prod-3d807/v1/ParkingSpaces", { credentials: "include", headers }),
+      originalFetch("https://spacer.click/api/private-K20A-prod-3d807/v1/ParkingLots?Territory=true", { credentials: "include", headers }),
       originalFetch("https://spacer.click/api/private-K20A-prod-3d807/v1/ParkingLots", { credentials: "include", headers })
     ]);
 
     if (!territoriesResp.ok) {
-      throw new Error(`ParkingSpaces failed: ${territoriesResp.status} ${territoriesResp.statusText}. Open spacer dashboard first to warm auth.`);
+      throw new Error(`ParkingLots?Territory=true failed: ${territoriesResp.status} ${territoriesResp.statusText}. Open spacer dashboard first to warm auth.`);
     }
     if (!parkingLotsResp.ok) {
       throw new Error(`ParkingLots failed: ${parkingLotsResp.status} ${parkingLotsResp.statusText}. Open spacer dashboard first to warm auth.`);
