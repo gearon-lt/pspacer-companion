@@ -72,9 +72,13 @@ async function bootstrapPageParkingLotControl() {
     parkingLots = dedupeById(lookups?.parkingLots || []);
   } catch (_) {}
 
-  mountOrUpdateControl();
-  const observer = new MutationObserver(() => mountOrUpdateControl());
-  observer.observe(document.documentElement, { childList: true, subtree: true });
+  // Lightweight retry loop to avoid heavy full-DOM mutation observer.
+  let attempts = 0;
+  const timer = setInterval(() => {
+    attempts += 1;
+    mountOrUpdateControl();
+    if (lotSelectRef || attempts >= 30) clearInterval(timer);
+  }, 500);
 }
 
 function mountOrUpdateControl() {
