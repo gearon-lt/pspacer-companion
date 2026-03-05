@@ -14,6 +14,15 @@ injectPageHook();
 bootstrapOverlay();
 bootstrapPageParkingLotControl();
 
+async function safeSendMessage(message) {
+  try {
+    if (!chrome?.runtime?.id) return null;
+    return await chrome.runtime.sendMessage(message);
+  } catch (_) {
+    return null;
+  }
+}
+
 function injectPageHook() {
   const script = document.createElement("script");
   script.src = chrome.runtime.getURL("src/injected/page-hook.js");
@@ -30,7 +39,7 @@ window.addEventListener("message", async (event) => {
   if (source !== SOURCE) return;
 
   if (type === "REQUEST_RULES") {
-    const response = await chrome.runtime.sendMessage({ type: "GET_RULES" });
+    const response = await safeSendMessage({ type: "GET_RULES" });
     currentRules = response?.rules || currentRules;
     window.postMessage({ source: TARGET, type: "RULES", payload: response?.rules }, "*");
     syncLotSelectionFromRules();
@@ -59,7 +68,7 @@ window.addEventListener("message", async (event) => {
   }
 
   if (type === "LOG") {
-    chrome.runtime.sendMessage({ type: "LOG", payload });
+    safeSendMessage({ type: "LOG", payload });
   }
 });
 
@@ -183,7 +192,7 @@ async function persistTerritoryAndLot() {
   const territoryId = getSelectedTerritoryId() || null;
   const parkingLotId = lotSelectRef?.value || null;
 
-  const base = (await chrome.runtime.sendMessage({ type: "GET_RULES" }))?.rules || {};
+  const base = (await safeSendMessage({ type: "GET_RULES" }))?.rules || {};
   const prevLotId = base?.filter?.parkingLotId || null;
 
   const nextRules = {
@@ -196,7 +205,7 @@ async function persistTerritoryAndLot() {
   };
 
   currentRules = nextRules;
-  await chrome.runtime.sendMessage({ type: "SET_RULES", rules: nextRules });
+  await safeSendMessage({ type: "SET_RULES", rules: nextRules });
 
   if (prevLotId !== parkingLotId) {
     triggerSharingsRefresh();
@@ -272,22 +281,21 @@ function requestLookups() {
 }
 
 function triggerSharingsRefresh() {
-  const buttons = [...document.querySelectorAll("button")];
-  const applyButton = buttons.find((b) => {
-    const t = (b.textContent || "").trim().toLowerCase();
-    return t.includes("iešk") || t.includes("iesk") || t.includes("search") || t.includes("taiky") || t.includes("filter");
-  });
-
-  if (applyButton) {
-    applyButton.click();
-    return;
-  }
-
   if (!territoryControlRef) return;
+
   try {
+    const form = territoryControlRef.closest("form");
+    territoryControlRef.focus?.();
+
     territoryControlRef.dispatchEvent(new Event("input", { bubbles: true }));
     territoryControlRef.dispatchEvent(new Event("change", { bubbles: true }));
+    territoryControlRef.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
+    territoryControlRef.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
     territoryControlRef.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    territoryControlRef.dispatchEvent(new Event("blur", { bubbles: true }));
+
+    form?.dispatchEvent(new Event("input", { bubbles: true }));
+    form?.dispatchEvent(new Event("change", { bubbles: true }));
   } catch (_) {}
 }
 
