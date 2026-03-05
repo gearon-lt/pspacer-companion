@@ -45,6 +45,7 @@
     try {
       const reqUrl = new URL(url, window.location.origin);
       const out = await runSharingsFlow(reqUrl, flattenHeaders(input, init), rules);
+      emitTerritoryUsed(reqUrl.searchParams.get("TerritoryId"));
       emitFilteredBatch(summary(reqUrl, out));
       return jsonResponse(out.payload);
     } catch (err) {
@@ -89,6 +90,7 @@
         const out = await runSharingsFlow(reqUrl, xhr.__pspacer_headers || {}, rules);
         const responseText = JSON.stringify(out.payload);
         patchXhrInstance(xhr, reqUrl.toString(), responseText);
+        emitTerritoryUsed(reqUrl.searchParams.get("TerritoryId"));
         emitFilteredBatch(summary(reqUrl, out));
         dispatchXhrSuccess(xhr);
       } catch (err) {
@@ -350,6 +352,11 @@
 
   function requestRules() {
     window.postMessage({ source: SOURCE, type: "REQUEST_RULES" }, "*");
+  }
+
+  function emitTerritoryUsed(territoryId) {
+    if (!territoryId) return;
+    window.postMessage({ source: SOURCE, type: "TERRITORY_USED", payload: { territoryId } }, "*");
   }
 
   function emitFilteredBatch(payload) {

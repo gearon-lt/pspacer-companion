@@ -37,6 +37,12 @@ window.addEventListener("message", async (event) => {
     return;
   }
 
+  if (type === "TERRITORY_USED") {
+    lastTerritoryResolved = payload?.territoryId || lastTerritoryResolved;
+    renderLotOptions();
+    return;
+  }
+
   if (type === "FILTERED_LISTING_BATCH") {
     renderOverlay(payload);
     if (!parkingLots.length) refreshLookupsSilently();
@@ -107,7 +113,10 @@ function mountOrUpdateControl() {
     wrapper.id = "pspacer-page-lot-filter";
     wrapper.style.marginTop = "8px";
     wrapper.style.width = "100%";
+    wrapper.style.position = "relative";
+    wrapper.style.zIndex = "10000";
     wrapper.style.pointerEvents = "auto";
+    wrapper.style.background = "#fff";
 
     const label = document.createElement("label");
     label.textContent = "Parking lot";
@@ -119,6 +128,8 @@ function mountOrUpdateControl() {
     lotSelectRef.style.width = "100%";
     lotSelectRef.style.minHeight = "36px";
     lotSelectRef.style.padding = "4px";
+    lotSelectRef.style.position = "relative";
+    lotSelectRef.style.zIndex = "10001";
     lotSelectRef.style.pointerEvents = "auto";
     lotSelectRef.addEventListener("change", persistTerritoryAndLot);
 
