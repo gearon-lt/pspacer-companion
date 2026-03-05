@@ -104,18 +104,27 @@
   };
 
   async function fetchLookups() {
-    const headers = { ...authHeadersCache };
+    let headers = { ...authHeadersCache, ...extractAuthHeadersFromStorage() };
 
-    const [territoriesResp, parkingLotsResp] = await Promise.all([
+    let [territoriesResp, parkingLotsResp] = await Promise.all([
       originalFetch("https://spacer.click/api/private-K20A-prod-3d807/v1/ParkingLots?Territory=true", { credentials: "include", headers }),
       originalFetch("https://spacer.click/api/private-K20A-prod-3d807/v1/ParkingLots", { credentials: "include", headers })
     ]);
 
+    // Retry once after warming header cache from latest requests/storage.
+    if (territoriesResp.status === 401 || parkingLotsResp.status === 401) {
+      headers = { ...authHeadersCache, ...extractAuthHeadersFromStorage() };
+      [territoriesResp, parkingLotsResp] = await Promise.all([
+        originalFetch("https://spacer.click/api/private-K20A-prod-3d807/v1/ParkingLots?Territory=true", { credentials: "include", headers }),
+        originalFetch("https://spacer.click/api/private-K20A-prod-3d807/v1/ParkingLots", { credentials: "include", headers })
+      ]);
+    }
+
     if (!territoriesResp.ok) {
-      throw new Error(`ParkingLots?Territory=true failed: ${territoriesResp.status} ${territoriesResp.statusText}. Open spacer dashboard first to warm auth.`);
+      throw new Error(`ParkingLots?Territory=true failed: ${territoriesResp.status} ${territoriesResp.statusText}. Open sharing list once, then retry.`);
     }
     if (!parkingLotsResp.ok) {
-      throw new Error(`ParkingLots failed: ${parkingLotsResp.status} ${parkingLotsResp.statusText}. Open spacer dashboard first to warm auth.`);
+      throw new Error(`ParkingLots failed: ${parkingLotsResp.status} ${parkingLotsResp.statusText}. Open sharing list once, then retry.`);
     }
 
     const territoriesRaw = await territoriesResp.json();
@@ -153,6 +162,48 @@
       if (v == null || v === "") continue;
       authHeadersCache[key] = String(v);
     }
+  }
+
+  function extractAuthHeadersFromStorage() {
+    const out = {};
+
+    const candidates = [];
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (!key) continue;
+        candidates.push(localStorage.getItem(key));
+      }
+    } catch (_) {}
+    try {
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (!key) continue;
+        candidates.push(sessionStorage.getItem(key));
+      }
+    } catch (_) {}
+
+    const token = findBearerToken(candidates);
+    if (token && !authHeadersCache.authorization) {
+      out.authorization = `Bearer ${token}`;
+    }
+
+    return out;
+  }
+
+  function findBearerToken(values) {
+    for (const raw of values) {
+      if (!raw || typeof raw !== "string") continue;
+
+      if (raw.startsWith("eyJ") && raw.split(".").length >= 3) return raw;
+
+      try {
+        const obj = JSON.parse(raw);
+        const direct = obj?.access_token || obj?.accessToken || obj?.token || obj?.jwt;
+        if (typeof direct === "string" && direct.startsWith("eyJ")) return direct;
+      } catch (_) {}
+    }
+    return null;
   }
 
   function shouldIntercept(url = "", activeRules) {
