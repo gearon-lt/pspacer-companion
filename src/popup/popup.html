@@ -5,15 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>PSpacer Companion</title>
     <style>
-      body { font: 13px/1.4 -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif; margin: 12px; min-width: 340px; }
+      body { font: 13px/1.4 -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif; margin: 12px; min-width: 320px; }
       h1 { font-size: 14px; margin: 0 0 10px; }
       label { display: block; margin-top: 8px; }
-      input, select { width: 100%; padding: 4px; box-sizing: border-box; }
+      input { width: 100%; padding: 4px; box-sizing: border-box; }
       .row { display: flex; gap: 8px; }
       .row > * { flex: 1; }
       button { margin-top: 12px; width: 100%; padding: 6px; }
       .hint { color: #666; font-size: 12px; margin-top: 8px; }
-      #status { color: #666; font-size: 12px; margin-top: 8px; min-height: 16px; }
     </style>
   </head>
   <body>
@@ -38,16 +37,6 @@
     </label>
 
     <label>
-      Territory
-      <select id="territoryId"></select>
-    </label>
-
-    <label>
-      Parking lot
-      <select id="parkingLotId"></select>
-    </label>
-
-    <label>
       Parking name contains
       <input id="parkingName" list="parkingNamePresets" placeholder="El." />
       <datalist id="parkingNamePresets">
@@ -57,9 +46,8 @@
       </datalist>
     </label>
 
-    <button id="refresh">Refresh territories/lots</button>
     <button id="save">Save rules</button>
-    <div id="status"></div>
+    <div class="hint">Territory and parking-lot filters are now set directly on spacer page.</div>
     <div class="hint">Reload spacer.click tab after changing rules.</div>
 
     <script type="module" src="popup.js"></script>
