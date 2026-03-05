@@ -281,20 +281,22 @@ function triggerSharingsRefresh() {
   try {
     const form = territoryControlRef?.closest("form") || document.querySelector("form.ExchangesForm") || document.querySelector("form");
 
-    // Do NOT touch territory control value to avoid resetting selection.
-    // Nudge date fields because this page reliably fetches on date/territory changes.
+    // 1) Keep territory untouched, but force normal form lifecycle.
+    form?.dispatchEvent(new Event("input", { bubbles: true }));
+    form?.dispatchEvent(new Event("change", { bubbles: true }));
+    form?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    try { form?.requestSubmit?.(); } catch (_) {}
+
+    // 2) Nudge date fields (this page fetches on date/territory changes).
     const dateInputs = [...document.querySelectorAll('input[type="date"], input[id*="date" i], input[name*="date" i]')];
     for (const input of dateInputs.slice(0, 2)) {
       const v = input.value;
+      input.dispatchEvent(new Event("focus", { bubbles: true }));
       input.dispatchEvent(new Event("input", { bubbles: true }));
       input.dispatchEvent(new Event("change", { bubbles: true }));
       input.value = v;
       input.dispatchEvent(new Event("blur", { bubbles: true }));
     }
-
-    // Form-level change as fallback.
-    form?.dispatchEvent(new Event("input", { bubbles: true }));
-    form?.dispatchEvent(new Event("change", { bubbles: true }));
   } catch (_) {}
 }
 
