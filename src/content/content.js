@@ -3,8 +3,9 @@ const TARGET = "PSPACER_EXTENSION";
 
 const pendingRequests = new Map();
 let currentRules = null;
+let territories = [];
 let parkingLots = [];
-let territorySelectRef = null;
+let territoryControlRef = null;
 let lotSelectRef = null;
 
 injectPageHook();
@@ -61,17 +62,15 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     sendResponse?.({ ok: true });
     return false;
   }
-
   return false;
 });
 
 async function bootstrapPageParkingLotControl() {
   try {
     const lookups = await requestLookups();
+    territories = dedupeById(lookups?.territories || []);
     parkingLots = dedupeById(lookups?.parkingLots || []);
-  } catch (_) {
-    // keep silent; control can still render as Any only
-  }
+  } catch (_) {}
 
   mountOrUpdateControl();
   const observer = new MutationObserver(() => mountOrUpdateControl());
@@ -79,15 +78,15 @@ async function bootstrapPageParkingLotControl() {
 }
 
 function mountOrUpdateControl() {
-  const territorySelect = findTerritorySelect();
-  if (!territorySelect) return;
+  const territoryControl = findTerritoryControl();
+  if (!territoryControl) return;
 
-  if (territorySelectRef !== territorySelect) {
-    territorySelectRef = territorySelect;
-    territorySelect.addEventListener("change", () => {
-      renderLotOptions();
-      persistTerritoryAndLot();
-    });
+  if (territoryControlRef !== territoryControl) {
+    territoryControlRef = territoryControl;
+    territoryControlRef.addEventListener("change", onTerritoryChanged, true);
+    territoryControlRef.addEventListener("input", onTerritoryChanged, true);
+    territoryControlRef.addEventListener("blur", onTerritoryChanged, true);
+    territoryControlRef.addEventListener("click", () => setTimeout(onTerritoryChanged, 300), true);
   }
 
   if (!lotSelectRef || !document.contains(lotSelectRef)) {
@@ -102,25 +101,31 @@ function mountOrUpdateControl() {
     label.style.marginBottom = "4px";
 
     lotSelectRef = document.createElement("select");
-    lotSelectRef.style.minWidth = "240px";
+    lotSelectRef.style.width = "100%";
+    lotSelectRef.style.minHeight = "38px";
     lotSelectRef.style.padding = "4px";
     lotSelectRef.addEventListener("change", persistTerritoryAndLot);
 
     wrapper.appendChild(label);
     wrapper.appendChild(lotSelectRef);
 
-    const host = territorySelect.closest("label, .field, .form-group, .ant-form-item, div") || territorySelect.parentElement;
-    host.parentElement?.insertBefore(wrapper, host.nextSibling);
+    const host = findTerritoryHost(territoryControl) || territoryControl.parentElement;
+    host?.parentElement?.insertBefore(wrapper, host.nextSibling);
   }
 
   renderLotOptions();
   syncLotSelectionFromRules();
 }
 
+function onTerritoryChanged() {
+  renderLotOptions();
+  persistTerritoryAndLot();
+}
+
 function renderLotOptions() {
   if (!lotSelectRef) return;
 
-  const selectedTerritory = territorySelectRef?.value || currentRules?.filter?.territoryId || "";
+  const selectedTerritory = getSelectedTerritoryId() || currentRules?.filter?.territoryId || "";
   const allowedLots = parkingLots
     .filter((x) => !selectedTerritory || x.territoryId === selectedTerritory)
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -128,36 +133,22 @@ function renderLotOptions() {
   const currentValue = lotSelectRef.value;
   lotSelectRef.innerHTML = "";
   lotSelectRef.append(new Option("Any", ""));
-  for (const lot of allowedLots) {
-    lotSelectRef.append(new Option(lot.name, lot.id));
-  }
+  for (const lot of allowedLots) lotSelectRef.append(new Option(lot.name, lot.id));
 
-  if ([...lotSelectRef.options].some((o) => o.value === currentValue)) {
-    lotSelectRef.value = currentValue;
-  }
+  if ([...lotSelectRef.options].some((o) => o.value === currentValue)) lotSelectRef.value = currentValue;
 }
 
 function syncLotSelectionFromRules() {
   if (!lotSelectRef || !currentRules?.filter) return;
   renderLotOptions();
 
-  const territoryId = currentRules.filter.territoryId || "";
   const lotId = currentRules.filter.parkingLotId || "";
-
-  if (territorySelectRef && territoryId && territorySelectRef.value !== territoryId) {
-    territorySelectRef.value = territoryId;
-    territorySelectRef.dispatchEvent(new Event("change", { bubbles: true }));
-  }
-
-  if ([...lotSelectRef.options].some((o) => o.value === lotId)) {
-    lotSelectRef.value = lotId;
-  } else {
-    lotSelectRef.value = "";
-  }
+  if ([...lotSelectRef.options].some((o) => o.value === lotId)) lotSelectRef.value = lotId;
+  else lotSelectRef.value = "";
 }
 
 async function persistTerritoryAndLot() {
-  const territoryId = territorySelectRef?.value || null;
+  const territoryId = getSelectedTerritoryId() || null;
   const parkingLotId = lotSelectRef?.value || null;
 
   const base = (await chrome.runtime.sendMessage({ type: "GET_RULES" }))?.rules || {};
@@ -172,6 +163,27 @@ async function persistTerritoryAndLot() {
 
   currentRules = nextRules;
   await chrome.runtime.sendMessage({ type: "SET_RULES", rules: nextRules });
+}
+
+function getSelectedTerritoryId() {
+  const ctrl = territoryControlRef;
+  if (!ctrl) return null;
+
+  let raw = "";
+  if (ctrl.tagName === "SELECT") raw = ctrl.value || "";
+  else if (ctrl.tagName === "INPUT") raw = ctrl.value || ctrl.getAttribute("value") || "";
+  else {
+    const input = ctrl.querySelector("input");
+    raw = input?.value || ctrl.getAttribute("aria-label") || ctrl.textContent || "";
+  }
+
+  raw = String(raw).trim();
+  if (!raw) return null;
+
+  if (territories.some((t) => t.id === raw)) return raw;
+
+  const byName = territories.find((t) => t.name.trim().toLowerCase() === raw.toLowerCase());
+  return byName?.id || null;
 }
 
 function requestLookups() {
@@ -197,22 +209,33 @@ function requestLookups() {
   });
 }
 
-function findTerritorySelect() {
-  const selectors = [
+function findTerritoryControl() {
+  const direct = [
     'select[id*="territory" i]',
     'select[name*="territory" i]',
-    'select[aria-label*="territory" i]'
+    'input[id*="territory" i]',
+    'input[name*="territory" i]',
+    '[role="combobox"][aria-label*="territory" i]'
   ];
-
-  for (const s of selectors) {
+  for (const s of direct) {
     const el = document.querySelector(s);
     if (el) return el;
   }
 
-  const allSelects = [...document.querySelectorAll("select")];
-  return allSelects.find((s) =>
-    (s.closest("label")?.textContent || "").toLowerCase().includes("territory")
-  ) || null;
+  const labelNode = [...document.querySelectorAll("label, div, span, p")].find((n) => {
+    const t = (n.textContent || "").trim().toLowerCase();
+    return t === "stovėjimo aikštelė" || t === "territory";
+  });
+  if (!labelNode) return null;
+
+  const field = labelNode.parentElement;
+  if (!field) return null;
+
+  return field.querySelector("select, input, [role='combobox']") || field.nextElementSibling?.querySelector?.("select, input, [role='combobox']") || null;
+}
+
+function findTerritoryHost(control) {
+  return control.closest(".ant-form-item, .form-group, .field, label, div");
 }
 
 function dedupeById(items) {
