@@ -5,7 +5,7 @@ MV3 Chrome extension skeleton for in-browser interception/filtering of Spacer li
 ## What this skeleton does
 
 - Injects a page-context hook into `spacer.click`
-- Intercepts Spacer sharings `fetch` requests (`/AssignSharedSpace/Sharings?`)
+- Intercepts Spacer sharings requests (`/AssignSharedSpace/Sharings?`) for both `fetch` and `xhr`
 - Replays additional API calls (`Limit`/`Offset`) like the Java app did
 - Filters by `parkingSpaceName` and `parkingLotId`
 - Stops when `minItemCount` is reached or `maxFetchCycles` exhausted
@@ -15,7 +15,7 @@ MV3 Chrome extension skeleton for in-browser interception/filtering of Spacer li
 
 ## Current limitations
 
-- `XMLHttpRequest` interception is telemetry-only (rewrite path currently targets `fetch`)
+- XHR rewrite uses runtime monkey-patching and should be validated against Spacer frontend updates
 - Does not patch React internals/store directly
 - Does not handle anti-bot / auth edge cases beyond normal browser session
 - Assumes sharings payload shape includes `items`

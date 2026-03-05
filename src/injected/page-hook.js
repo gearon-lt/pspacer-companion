@@ -8,76 +8,100 @@
 
   window.addEventListener("message", (event) => {
     if (event.source !== window) return;
-
     const { source, type, payload } = event.data || {};
     if (source !== TARGET) return;
-
-    if (type === "RULES") {
-      rules = payload;
-    }
+    if (type === "RULES") rules = payload;
   });
 
-  const originalFetch = window.fetch;
+  const originalFetch = window.fetch.bind(window);
+
+  // Keep fetch interception for compatibility.
   window.fetch = async (...args) => {
     const [input, init = {}] = args;
     const url = typeof input === "string" ? input : input?.url;
 
-    if (!isSharingsRequest(url, rules)) {
-      return originalFetch(...args);
-    }
-
-    const reqUrl = new URL(url, window.location.origin);
-
-    if (!shouldFilterByTerritory(reqUrl, rules)) {
-      emitLog({ type: "skip_territory_mismatch", url });
-      return originalFetch(...args);
-    }
+    if (!shouldIntercept(url, rules)) return originalFetch(...args);
 
     try {
-      const baseOffset = parseInt(reqUrl.searchParams.get("Offset") || "0", 10) || 0;
-      const headersObj = flattenHeaders(input, init);
-      const out = await fetchAndFilter(reqUrl, headersObj, baseOffset, rules);
-
-      emitFilteredBatch({
-        endpoint: reqUrl.toString(),
-        total: out.totalFetched,
-        kept: out.filteredItems.length,
-        dropped: out.totalFetched - out.filteredItems.length,
-        sample: out.filteredItems.slice(0, 5)
-      });
-
-      return new Response(JSON.stringify(out.payload), {
-        status: 200,
-        headers: {
-          "content-type": "application/json; charset=utf-8"
-        }
-      });
+      const reqUrl = new URL(url, window.location.origin);
+      const out = await runSharingsFlow(reqUrl, flattenHeaders(input, init), rules);
+      emitFilteredBatch(summary(reqUrl, out));
+      return jsonResponse(out.payload);
     } catch (err) {
       emitLog({ type: "fetch_hook_error", message: err?.message });
       return originalFetch(...args);
     }
   };
 
-  function shouldFilterByTerritory(reqUrl, activeRules) {
+  // XHR interception (primary for Spacer).
+  const originalOpen = XMLHttpRequest.prototype.open;
+  const originalSend = XMLHttpRequest.prototype.send;
+  const originalSetRequestHeader = XMLHttpRequest.prototype.setRequestHeader;
+
+  XMLHttpRequest.prototype.open = function patchedOpen(method, url, async = true, user, password) {
+    this.__pspacer_method = method;
+    this.__pspacer_url = url;
+    this.__pspacer_async = async !== false;
+    this.__pspacer_headers = {};
+    return originalOpen.call(this, method, url, async, user, password);
+  };
+
+  XMLHttpRequest.prototype.setRequestHeader = function patchedSetRequestHeader(name, value) {
+    this.__pspacer_headers ||= {};
+    this.__pspacer_headers[String(name).toLowerCase()] = String(value);
+    return originalSetRequestHeader.call(this, name, value);
+  };
+
+  XMLHttpRequest.prototype.send = function patchedSend(body) {
+    const method = String(this.__pspacer_method || "GET").toUpperCase();
+    const rawUrl = this.__pspacer_url;
+
+    if (!this.__pspacer_async || method !== "GET" || !shouldIntercept(rawUrl, rules)) {
+      return originalSend.call(this, body);
+    }
+
+    const xhr = this;
+
+    (async () => {
+      try {
+        const reqUrl = new URL(rawUrl, window.location.origin);
+        const out = await runSharingsFlow(reqUrl, xhr.__pspacer_headers || {}, rules);
+        const responseText = JSON.stringify(out.payload);
+        patchXhrInstance(xhr, reqUrl.toString(), responseText);
+        emitFilteredBatch(summary(reqUrl, out));
+        dispatchXhrSuccess(xhr);
+      } catch (err) {
+        emitLog({ type: "xhr_hook_error", message: err?.message });
+        try {
+          originalSend.call(xhr, body);
+        } catch (fallbackErr) {
+          emitLog({ type: "xhr_fallback_error", message: fallbackErr?.message });
+          dispatchXhrFailure(xhr);
+        }
+      }
+    })();
+  };
+
+  function shouldIntercept(url = "", activeRules) {
+    if (!activeRules?.enabled) return false;
+    const pattern = activeRules?.urlPattern || "/AssignSharedSpace/Sharings?";
+    if (!String(url).includes(pattern)) return false;
+
+    const reqUrl = new URL(url, window.location.origin);
     const wanted = activeRules?.filter?.territoryId;
     const actual = reqUrl.searchParams.get("TerritoryId");
-    if (!wanted || !actual) return true;
-    return wanted === actual;
+    return !wanted || !actual || wanted === actual;
   }
 
-  function isSharingsRequest(url = "", activeRules) {
-    const pattern = activeRules?.urlPattern || "/AssignSharedSpace/Sharings?";
-    return url.includes(pattern);
-  }
-
-  async function fetchAndFilter(baseUrl, headersObj, baseOffset, activeRules) {
+  async function runSharingsFlow(baseUrl, headersObj, activeRules) {
+    const baseOffset = parseInt(baseUrl.searchParams.get("Offset") || "0", 10) || 0;
     const pageSize = Number(activeRules?.pageSize ?? 200);
     const maxFetchCycles = Number(activeRules?.maxFetchCycles ?? 10);
     const minItemCount = Number(activeRules?.minItemCount ?? 5);
 
     let root = null;
-    const filteredItems = [];
     let totalFetched = 0;
+    const filteredItems = [];
 
     for (let fetchCycle = 0; fetchCycle < maxFetchCycles; fetchCycle++) {
       const offset = baseOffset + fetchCycle * pageSize;
@@ -101,67 +125,103 @@
       totalFetched += items.length;
 
       for (const item of items) {
-        if (matchesFilter(item, activeRules?.filter)) {
-          filteredItems.push(item);
-        }
+        if (matchesFilter(item, activeRules?.filter)) filteredItems.push(item);
       }
 
-      if (filteredItems.length >= minItemCount) {
-        break;
-      }
+      if (filteredItems.length >= minItemCount) break;
     }
 
-    const payload = {
-      ...(root || {}),
-      count: filteredItems.length,
-      items: filteredItems
-    };
-
-    if (filteredItems.length === 0) {
-      payload.nextOffset = 0;
-    }
+    const payload = { ...(root || {}), count: filteredItems.length, items: filteredItems };
+    if (filteredItems.length === 0) payload.nextOffset = 0;
 
     return { payload, filteredItems, totalFetched };
   }
 
   function matchesFilter(item, filter = {}) {
-    const parkingSpaceName = asString(item?.parkingSpaceName);
-    const parkingLotId = asString(item?.parkingLotId);
+    const parkingSpaceName = String(item?.parkingSpaceName ?? "");
+    const parkingLotId = String(item?.parkingLotId ?? "");
 
-    if (filter?.parkingName) {
-      if (!parkingSpaceName.toLowerCase().includes(String(filter.parkingName).toLowerCase())) {
-        return false;
-      }
-    }
-
-    if (filter?.parkingLotId) {
-      if (parkingLotId !== String(filter.parkingLotId)) {
-        return false;
-      }
-    }
+    if (filter?.parkingName && !parkingSpaceName.toLowerCase().includes(String(filter.parkingName).toLowerCase())) return false;
+    if (filter?.parkingLotId && parkingLotId !== String(filter.parkingLotId)) return false;
 
     return true;
   }
 
-  function asString(value) {
-    return value == null ? "" : String(value);
-  }
-
   function flattenHeaders(input, init) {
     const output = {};
-
     const append = (headersLike) => {
       if (!headersLike) return;
       const h = new Headers(headersLike);
-      h.forEach((value, key) => {
-        output[key] = value;
-      });
+      h.forEach((value, key) => (output[key] = value));
     };
-
     if (input instanceof Request) append(input.headers);
     append(init?.headers);
-
     return output;
+  }
+
+  function patchXhrInstance(xhr, responseURL, body) {
+    const state = {
+      readyState: 4,
+      status: 200,
+      statusText: "OK",
+      responseText: body,
+      response: body,
+      responseURL
+    };
+
+    defineGetter(xhr, "readyState", () => state.readyState);
+    defineGetter(xhr, "status", () => state.status);
+    defineGetter(xhr, "statusText", () => state.statusText);
+    defineGetter(xhr, "responseText", () => state.responseText);
+    defineGetter(xhr, "response", () => state.response);
+    defineGetter(xhr, "responseURL", () => state.responseURL);
+  }
+
+  function defineGetter(obj, prop, getter) {
+    try {
+      Object.defineProperty(obj, prop, { configurable: true, get: getter });
+    } catch (_) {
+      // ignore: best effort
+    }
+  }
+
+  function dispatchXhrSuccess(xhr) {
+    trigger(xhr, "readystatechange");
+    trigger(xhr, "load");
+    trigger(xhr, "loadend");
+  }
+
+  function dispatchXhrFailure(xhr) {
+    trigger(xhr, "readystatechange");
+    trigger(xhr, "error");
+    trigger(xhr, "loadend");
+  }
+
+  function trigger(xhr, type) {
+    const handler = xhr[`on${type}`];
+    try {
+      if (typeof handler === "function") handler.call(xhr, new Event(type));
+    } catch (_) {}
+    try {
+      xhr.dispatchEvent(new Event(type));
+    } catch (_) {}
+  }
+
+  function jsonResponse(payload) {
+    return new Response(JSON.stringify(payload), {
+      status: 200,
+      headers: { "content-type": "application/json; charset=utf-8" }
+    });
+  }
+
+  function summary(reqUrl, out) {
+    return {
+      endpoint: reqUrl.toString(),
+      total: out.totalFetched,
+      kept: out.filteredItems.length,
+      dropped: out.totalFetched - out.filteredItems.length,
+      sample: out.filteredItems.slice(0, 5)
+    };
   }
 
   function requestRules() {
