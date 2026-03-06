@@ -13,6 +13,7 @@ let parkingNameInputRef = null;
 let parkingNameComboRef = null;
 let parkingNamePresetsRef = null;
 let parkingNamePresetIndex = -1;
+let parkingNamePresetArmedByKeyboard = false;
 let lastTerritoryResolved = null;
 
 injectPageHook();
@@ -235,11 +236,15 @@ function mountOrUpdateControl() {
     }
 
     parkingNameInputRef.addEventListener("change", persistTerritoryAndLot);
+    parkingNameInputRef.addEventListener("input", () => {
+      parkingNamePresetArmedByKeyboard = false;
+    });
     parkingNameInputRef.addEventListener("focus", showParkingNamePresets);
     parkingNameInputRef.addEventListener("click", showParkingNamePresets);
     parkingNameInputRef.addEventListener("keydown", (event) => {
       if (event.key === "ArrowDown") {
         event.preventDefault();
+        parkingNamePresetArmedByKeyboard = true;
         showParkingNamePresets();
         moveParkingNamePresetIndex(1);
         return;
@@ -247,6 +252,7 @@ function mountOrUpdateControl() {
 
       if (event.key === "ArrowUp") {
         event.preventDefault();
+        parkingNamePresetArmedByKeyboard = true;
         showParkingNamePresets();
         moveParkingNamePresetIndex(-1);
         return;
@@ -260,15 +266,18 @@ function mountOrUpdateControl() {
       if (event.key !== "Enter") return;
       event.preventDefault();
 
-      if (isParkingNamePresetsOpen() && parkingNamePresetIndex >= 0) {
+      if (parkingNamePresetArmedByKeyboard && isParkingNamePresetsOpen() && parkingNamePresetIndex >= 0) {
         const item = getParkingNamePresetItems()[parkingNamePresetIndex];
         if (item) {
           if (parkingNameInputRef) parkingNameInputRef.value = item.dataset.value || "";
+          parkingNamePresetArmedByKeyboard = false;
           hideParkingNamePresets();
           persistTerritoryAndLot({ forceFetch: true });
           return;
         }
       }
+
+      parkingNamePresetArmedByKeyboard = false;
 
       hideParkingNamePresets();
       persistTerritoryAndLot({ forceFetch: true });
@@ -372,6 +381,7 @@ function showParkingNamePresets() {
 
 function hideParkingNamePresets() {
   if (!parkingNamePresetsRef) return;
+  parkingNamePresetArmedByKeyboard = false;
   parkingNamePresetsRef.style.display = "none";
   setParkingNamePresetIndex(-1);
 }
