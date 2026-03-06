@@ -34,6 +34,9 @@ For end-user installation and feature overview, see `README.md`.
 - `npm run pack:firefox` - build `dist/firefox`
 - `npm run pack` - build both targets
 - `npm run xpi:firefox` - build unsigned Firefox XPI (local packaging; no AMO credentials required)
+- `npm run sign:firefox` - default Firefox signing flow (listed)
+- `npm run sign:firefox:listed` - submit/sign for AMO listed distribution
+- `npm run sign:firefox:unlisted` - submit/sign for AMO unlisted distribution
 
 ## Environment settings for Firefox packaging
 
@@ -61,6 +64,23 @@ npm run validate
 npm run pack:chrome
 npm run pack:firefox
 npm run xpi:firefox
+```
+
+## Listed AMO workflow (CLI)
+
+1. Ensure your add-on exists in AMO listed track and metadata is configured in AMO UI.
+2. Bump extension version in manifests/package.
+3. Export AMO credentials.
+4. Run listed signing script.
+5. Monitor AMO review state in Developer Hub.
+
+Example commands:
+
+```powershell
+cd C:\ws\pspacer-companion
+$env:WEB_EXT_API_KEY="<amo-jwt-issuer>"
+$env:WEB_EXT_API_SECRET="<amo-jwt-secret>"
+npm run sign:firefox:listed
 ```
 
 ## Browser-specific notes
