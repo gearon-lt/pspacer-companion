@@ -9,7 +9,7 @@ let parkingLots = [];
 let territoryControlRef = null;
 let territoryHostRef = null;
 let lotSelectRef = null;
-let parkingNamePresetRef = null;
+let parkingNameInputRef = null;
 let lastTerritoryResolved = null;
 
 injectPageHook();
@@ -92,7 +92,7 @@ async function bootstrapPageParkingLotControl() {
   const timer = setInterval(() => {
     attempts += 1;
     mountOrUpdateControl();
-    if (lotSelectRef && parkingNamePresetRef || attempts >= 30) clearInterval(timer);
+    if (lotSelectRef && parkingNameInputRef || attempts >= 30) clearInterval(timer);
   }, 500);
 
 }
@@ -158,20 +158,36 @@ function mountOrUpdateControl() {
     const nameGridItem = document.createElement("div");
     nameGridItem.className = "MuiGrid-root MuiGrid-item MuiGrid-grid-xs-12 css-15j76c0";
 
-    parkingNamePresetRef = document.createElement("select");
-    parkingNamePresetRef.style.width = "100%";
-    parkingNamePresetRef.style.minHeight = "38px";
-    parkingNamePresetRef.style.padding = "8px 10px";
-    parkingNamePresetRef.style.border = "1px solid #d9d9d9";
-    parkingNamePresetRef.style.borderRadius = "4px";
-    parkingNamePresetRef.style.background = "#fff";
-    parkingNamePresetRef.append(new Option("Any", ""));
-    parkingNamePresetRef.append(new Option("El.", "El."));
-    parkingNamePresetRef.append(new Option("El.stotelė", "El.stotelė"));
-    parkingNamePresetRef.append(new Option("El.lizdas", "El.lizdas"));
-    parkingNamePresetRef.addEventListener("change", persistTerritoryAndLot);
+    parkingNameInputRef = document.createElement("input");
+    parkingNameInputRef.type = "text";
+    parkingNameInputRef.placeholder = "Any (type and press Enter)";
+    parkingNameInputRef.autocomplete = "off";
+    parkingNameInputRef.style.width = "100%";
+    parkingNameInputRef.style.minHeight = "38px";
+    parkingNameInputRef.style.padding = "8px 10px";
+    parkingNameInputRef.style.border = "1px solid #d9d9d9";
+    parkingNameInputRef.style.borderRadius = "4px";
+    parkingNameInputRef.style.background = "#fff";
 
-    nameGridItem.appendChild(parkingNamePresetRef);
+    const namePresetsList = document.createElement("datalist");
+    namePresetsList.id = "pspacer-parking-name-presets";
+    for (const preset of ["El.", "El.stotelė", "El.lizdas"]) {
+      const option = document.createElement("option");
+      option.value = preset;
+      namePresetsList.appendChild(option);
+    }
+
+    parkingNameInputRef.setAttribute("list", namePresetsList.id);
+    parkingNameInputRef.addEventListener("change", persistTerritoryAndLot);
+    parkingNameInputRef.addEventListener("blur", persistTerritoryAndLot);
+    parkingNameInputRef.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      persistTerritoryAndLot({ forceFetch: true });
+    });
+
+    nameGridItem.appendChild(parkingNameInputRef);
+    nameGridItem.appendChild(namePresetsList);
     nameWrapper.appendChild(nameLabel);
     nameWrapper.appendChild(nameGridItem);
     lotWrapper.insertAdjacentElement("afterend", nameWrapper);
@@ -212,14 +228,13 @@ function syncLotSelectionFromRules() {
   if ([...lotSelectRef.options].some((o) => o.value === lotId)) lotSelectRef.value = lotId;
   else lotSelectRef.value = "";
 
-  if (parkingNamePresetRef) {
+  if (parkingNameInputRef) {
     const parkingName = currentRules.filter.parkingName || "";
-    const presets = ["", "El.", "El.stotelė", "El.lizdas"];
-    parkingNamePresetRef.value = presets.includes(parkingName) ? parkingName : "";
+    parkingNameInputRef.value = String(parkingName || "");
   }
 }
 
-async function persistTerritoryAndLot() {
+async function persistTerritoryAndLot({ forceFetch = false } = {}) {
   const territoryId = getSelectedTerritoryId() || null;
   const parkingLotId = lotSelectRef?.value || null;
   const parkingName = getParkingNameValue();
@@ -241,14 +256,14 @@ async function persistTerritoryAndLot() {
   currentRules = nextRules;
   await safeSendMessage({ type: "SET_RULES", rules: nextRules });
 
-  if (prevLotId !== parkingLotId || prevParkingName !== parkingName) {
+  if (forceFetch || prevLotId !== parkingLotId || prevParkingName !== parkingName) {
     window.postMessage({ source: TARGET, type: "TRIGGER_SHARED_SPACES_FETCH" }, "*");
   }
 }
 
 function getParkingNameValue() {
-  if (!parkingNamePresetRef) return null;
-  return normalizeParkingName(parkingNamePresetRef.value);
+  if (!parkingNameInputRef) return null;
+  return normalizeParkingName(parkingNameInputRef.value);
 }
 
 function normalizeParkingName(value) {
