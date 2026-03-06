@@ -10,6 +10,7 @@ let territoryControlRef = null;
 let territoryHostRef = null;
 let lotSelectRef = null;
 let parkingNameInputRef = null;
+let parkingNameComboRef = null;
 let parkingNamePresetsRef = null;
 let lastTerritoryResolved = null;
 
@@ -18,10 +19,10 @@ bootstrapOverlay();
 bootstrapPageParkingLotControl();
 
 document.addEventListener("click", (event) => {
-  if (!parkingNamePresetsRef || !parkingNameInputRef) return;
+  if (!parkingNamePresetsRef || !parkingNameComboRef) return;
   const target = event.target;
   if (!(target instanceof Node)) return;
-  if (parkingNamePresetsRef.contains(target) || parkingNameInputRef.contains(target)) return;
+  if (parkingNameComboRef.contains(target)) return;
   hideParkingNamePresets();
 });
 
@@ -169,6 +170,7 @@ function mountOrUpdateControl() {
 
     const parkingNameRow = document.createElement("div");
     parkingNameRow.style.position = "relative";
+    parkingNameComboRef = parkingNameRow;
 
     parkingNameInputRef = document.createElement("input");
     parkingNameInputRef.type = "text";
@@ -244,7 +246,9 @@ function mountOrUpdateControl() {
       persistTerritoryAndLot({ forceFetch: true });
     });
 
-    parkingNameToggle.addEventListener("click", () => {
+    parkingNameToggle.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
       if (!parkingNamePresetsRef || parkingNamePresetsRef.style.display === "none") showParkingNamePresets();
       else hideParkingNamePresets();
       parkingNameInputRef?.focus();
