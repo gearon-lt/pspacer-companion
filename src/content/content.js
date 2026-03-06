@@ -10,12 +10,20 @@ let territoryControlRef = null;
 let territoryHostRef = null;
 let lotSelectRef = null;
 let parkingNameInputRef = null;
-let parkingNamePresetSelectRef = null;
+let parkingNamePresetsRef = null;
 let lastTerritoryResolved = null;
 
 injectPageHook();
 bootstrapOverlay();
 bootstrapPageParkingLotControl();
+
+document.addEventListener("click", (event) => {
+  if (!parkingNamePresetsRef || !parkingNameInputRef) return;
+  const target = event.target;
+  if (!(target instanceof Node)) return;
+  if (parkingNamePresetsRef.contains(target) || parkingNameInputRef.contains(target)) return;
+  hideParkingNamePresets();
+});
 
 async function safeSendMessage(message) {
   try {
@@ -160,49 +168,91 @@ function mountOrUpdateControl() {
     nameGridItem.className = "MuiGrid-root MuiGrid-item MuiGrid-grid-xs-12 css-15j76c0";
 
     const parkingNameRow = document.createElement("div");
-    parkingNameRow.style.display = "flex";
-    parkingNameRow.style.gap = "8px";
+    parkingNameRow.style.position = "relative";
 
     parkingNameInputRef = document.createElement("input");
     parkingNameInputRef.type = "text";
     parkingNameInputRef.placeholder = "Any (type and press Enter)";
     parkingNameInputRef.autocomplete = "off";
-    parkingNameInputRef.style.flex = "1";
+    parkingNameInputRef.style.width = "100%";
     parkingNameInputRef.style.minHeight = "38px";
-    parkingNameInputRef.style.padding = "8px 10px";
+    parkingNameInputRef.style.padding = "8px 34px 8px 10px";
     parkingNameInputRef.style.border = "1px solid #d9d9d9";
     parkingNameInputRef.style.borderRadius = "4px";
     parkingNameInputRef.style.background = "#fff";
 
-    parkingNamePresetSelectRef = document.createElement("select");
-    parkingNamePresetSelectRef.style.width = "130px";
-    parkingNamePresetSelectRef.style.minHeight = "38px";
-    parkingNamePresetSelectRef.style.padding = "8px 10px";
-    parkingNamePresetSelectRef.style.border = "1px solid #d9d9d9";
-    parkingNamePresetSelectRef.style.borderRadius = "4px";
-    parkingNamePresetSelectRef.style.background = "#fff";
-    parkingNamePresetSelectRef.append(new Option("Presets", ""));
-    parkingNamePresetSelectRef.append(new Option("El.", "El."));
-    parkingNamePresetSelectRef.append(new Option("El.stotelė", "El.stotelė"));
-    parkingNamePresetSelectRef.append(new Option("El.lizdas", "El.lizdas"));
+    const parkingNameToggle = document.createElement("button");
+    parkingNameToggle.type = "button";
+    parkingNameToggle.textContent = "▾";
+    parkingNameToggle.style.position = "absolute";
+    parkingNameToggle.style.right = "6px";
+    parkingNameToggle.style.top = "50%";
+    parkingNameToggle.style.transform = "translateY(-50%)";
+    parkingNameToggle.style.border = "none";
+    parkingNameToggle.style.background = "transparent";
+    parkingNameToggle.style.cursor = "pointer";
+    parkingNameToggle.style.fontSize = "14px";
+    parkingNameToggle.style.color = "#666";
+
+    parkingNamePresetsRef = document.createElement("div");
+    parkingNamePresetsRef.style.position = "absolute";
+    parkingNamePresetsRef.style.left = "0";
+    parkingNamePresetsRef.style.right = "0";
+    parkingNamePresetsRef.style.top = "calc(100% + 4px)";
+    parkingNamePresetsRef.style.zIndex = "9999";
+    parkingNamePresetsRef.style.background = "#fff";
+    parkingNamePresetsRef.style.border = "1px solid #d9d9d9";
+    parkingNamePresetsRef.style.borderRadius = "4px";
+    parkingNamePresetsRef.style.boxShadow = "0 4px 12px rgba(0,0,0,0.08)";
+    parkingNamePresetsRef.style.display = "none";
+
+    for (const optionValue of ["", "El.", "El.stotelė", "El.lizdas"]) {
+      const item = document.createElement("button");
+      item.type = "button";
+      item.textContent = optionValue === "" ? "Any" : optionValue;
+      item.dataset.value = optionValue;
+      item.style.display = "block";
+      item.style.width = "100%";
+      item.style.textAlign = "left";
+      item.style.padding = "8px 10px";
+      item.style.border = "none";
+      item.style.background = "#fff";
+      item.style.cursor = "pointer";
+      item.addEventListener("click", () => {
+        if (parkingNameInputRef) parkingNameInputRef.value = optionValue;
+        hideParkingNamePresets();
+        persistTerritoryAndLot({ forceFetch: true });
+      });
+      parkingNamePresetsRef.appendChild(item);
+    }
 
     parkingNameInputRef.addEventListener("change", persistTerritoryAndLot);
-    parkingNameInputRef.addEventListener("blur", persistTerritoryAndLot);
+    parkingNameInputRef.addEventListener("blur", () => setTimeout(() => {
+      hideParkingNamePresets();
+      persistTerritoryAndLot();
+    }, 120));
+    parkingNameInputRef.addEventListener("focus", showParkingNamePresets);
     parkingNameInputRef.addEventListener("keydown", (event) => {
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        showParkingNamePresets();
+        return;
+      }
       if (event.key !== "Enter") return;
       event.preventDefault();
+      hideParkingNamePresets();
       persistTerritoryAndLot({ forceFetch: true });
     });
 
-    parkingNamePresetSelectRef.addEventListener("change", () => {
-      const presetValue = parkingNamePresetSelectRef?.value || "";
-      if (parkingNameInputRef) parkingNameInputRef.value = presetValue;
-      persistTerritoryAndLot({ forceFetch: true });
-      parkingNamePresetSelectRef.value = "";
+    parkingNameToggle.addEventListener("click", () => {
+      if (!parkingNamePresetsRef || parkingNamePresetsRef.style.display === "none") showParkingNamePresets();
+      else hideParkingNamePresets();
+      parkingNameInputRef?.focus();
     });
 
     parkingNameRow.appendChild(parkingNameInputRef);
-    parkingNameRow.appendChild(parkingNamePresetSelectRef);
+    parkingNameRow.appendChild(parkingNameToggle);
+    parkingNameRow.appendChild(parkingNamePresetsRef);
     nameGridItem.appendChild(parkingNameRow);
     nameWrapper.appendChild(nameLabel);
     nameWrapper.appendChild(nameGridItem);
@@ -249,11 +299,6 @@ function syncLotSelectionFromRules() {
     parkingNameInputRef.value = String(parkingName || "");
   }
 
-  if (parkingNamePresetSelectRef) {
-    const parkingName = String(currentRules.filter.parkingName || "");
-    const presets = ["El.", "El.stotelė", "El.lizdas"];
-    parkingNamePresetSelectRef.value = presets.includes(parkingName) ? parkingName : "";
-  }
 }
 
 async function persistTerritoryAndLot({ forceFetch = false } = {}) {
@@ -286,6 +331,16 @@ async function persistTerritoryAndLot({ forceFetch = false } = {}) {
 function getParkingNameValue() {
   if (!parkingNameInputRef) return null;
   return normalizeParkingName(parkingNameInputRef.value);
+}
+
+function showParkingNamePresets() {
+  if (!parkingNamePresetsRef) return;
+  parkingNamePresetsRef.style.display = "block";
+}
+
+function hideParkingNamePresets() {
+  if (!parkingNamePresetsRef) return;
+  parkingNamePresetsRef.style.display = "none";
 }
 
 function normalizeParkingName(value) {
