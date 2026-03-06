@@ -12,6 +12,7 @@ let lotSelectRef = null;
 let parkingNameInputRef = null;
 let parkingNameComboRef = null;
 let parkingNamePresetsRef = null;
+let parkingNamePresetIndex = -1;
 let lastTerritoryResolved = null;
 
 injectPageHook();
@@ -220,6 +221,11 @@ function mountOrUpdateControl() {
       item.style.border = "none";
       item.style.background = "#fff";
       item.style.cursor = "pointer";
+      item.addEventListener("mouseenter", () => {
+        const items = getParkingNamePresetItems();
+        const idx = items.indexOf(item);
+        if (idx >= 0) setParkingNamePresetIndex(idx);
+      });
       item.addEventListener("click", () => {
         if (parkingNameInputRef) parkingNameInputRef.value = optionValue;
         hideParkingNamePresets();
@@ -235,10 +241,35 @@ function mountOrUpdateControl() {
       if (event.key === "ArrowDown") {
         event.preventDefault();
         showParkingNamePresets();
+        moveParkingNamePresetIndex(1);
         return;
       }
+
+      if (event.key === "ArrowUp") {
+        event.preventDefault();
+        showParkingNamePresets();
+        moveParkingNamePresetIndex(-1);
+        return;
+      }
+
+      if (event.key === "Escape") {
+        hideParkingNamePresets();
+        return;
+      }
+
       if (event.key !== "Enter") return;
       event.preventDefault();
+
+      if (isParkingNamePresetsOpen() && parkingNamePresetIndex >= 0) {
+        const item = getParkingNamePresetItems()[parkingNamePresetIndex];
+        if (item) {
+          if (parkingNameInputRef) parkingNameInputRef.value = item.dataset.value || "";
+          hideParkingNamePresets();
+          persistTerritoryAndLot({ forceFetch: true });
+          return;
+        }
+      }
+
       hideParkingNamePresets();
       persistTerritoryAndLot({ forceFetch: true });
     });
@@ -336,11 +367,47 @@ function getParkingNameValue() {
 function showParkingNamePresets() {
   if (!parkingNamePresetsRef) return;
   parkingNamePresetsRef.style.display = "block";
+  if (parkingNamePresetIndex < 0) setParkingNamePresetIndex(0);
 }
 
 function hideParkingNamePresets() {
   if (!parkingNamePresetsRef) return;
   parkingNamePresetsRef.style.display = "none";
+  setParkingNamePresetIndex(-1);
+}
+
+function isParkingNamePresetsOpen() {
+  return Boolean(parkingNamePresetsRef && parkingNamePresetsRef.style.display !== "none");
+}
+
+function getParkingNamePresetItems() {
+  if (!parkingNamePresetsRef) return [];
+  return [...parkingNamePresetsRef.querySelectorAll("button")];
+}
+
+function setParkingNamePresetIndex(nextIndex) {
+  parkingNamePresetIndex = nextIndex;
+  const items = getParkingNamePresetItems();
+  items.forEach((item, idx) => {
+    const active = idx === parkingNamePresetIndex;
+    item.style.background = active ? "#f2f6ff" : "#fff";
+  });
+}
+
+function moveParkingNamePresetIndex(delta) {
+  const items = getParkingNamePresetItems();
+  if (!items.length) return;
+
+  const max = items.length - 1;
+  let next = parkingNamePresetIndex;
+
+  if (next < 0) next = delta > 0 ? 0 : max;
+  else next += delta;
+
+  if (next < 0) next = max;
+  if (next > max) next = 0;
+
+  setParkingNamePresetIndex(next);
 }
 
 function normalizeParkingName(value) {
