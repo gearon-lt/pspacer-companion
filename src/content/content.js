@@ -229,10 +229,6 @@ function mountOrUpdateControl() {
     }
 
     parkingNameInputRef.addEventListener("change", persistTerritoryAndLot);
-    parkingNameInputRef.addEventListener("blur", () => setTimeout(() => {
-      hideParkingNamePresets();
-      persistTerritoryAndLot();
-    }, 120));
     parkingNameInputRef.addEventListener("focus", showParkingNamePresets);
     parkingNameInputRef.addEventListener("keydown", (event) => {
       if (event.key === "ArrowDown") {
