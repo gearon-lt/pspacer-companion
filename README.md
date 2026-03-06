@@ -1,12 +1,12 @@
 # pspacer-companion
 
-MV3 Chrome extension that enhances `spacer.click` sharings filtering directly in the browser.
+MV3 browser extension that enhances `spacer.click` sharings filtering directly in the browser.
 
-## Current state
+Developer workflow, build scripts, and project internals are in `DEVELOPERS.md`.
 
-This project now ports the important behavior from the Java Playwright app into a Chrome extension:
+## What it does
 
-- Intercepts Sharings API requests (`/AssignSharedSpace/Sharings?`) in page context
+- Intercepts Sharings API requests (`/AssignSharedSpace/Sharings?`)
 - Supports both `fetch` and `XMLHttpRequest` interception paths
 - Replays additional API calls (`Limit`/`Offset`) with:
   - `pageSize`
@@ -19,6 +19,12 @@ This project now ports the important behavior from the Java Playwright app into 
 - Rewrites Sharings response payload returned to Spacer UI
 - Shows compact debug overlay (Total / Kept / Dropped)
 
+## Browser support
+
+- Chrome / Chromium
+- Firefox desktop `>= 140.0`
+- Firefox for Android `>= 142.0`
+
 ## In-page filters (on Spacer form)
 
 The extension injects extra controls below territory:
@@ -26,47 +32,48 @@ The extension injects extra controls below territory:
 1. **Actual parking lot**
    - Dynamic options from Spacer API
    - Scoped to currently selected territory
-   - Includes `Any`
+   - Default: `Any`
 
 2. **Parking name**
    - Presets only: `Any`, `El.`, `El.stotelė`, `El.lizdas`
 
-Changing parking lot or parking name updates extension rules and triggers Spacer shared-spaces fetch via page-context React method invocation.
+Changing parking lot or parking name updates extension rules and triggers Spacer shared-spaces fetch.
 
-## Extension popup
+## Popup settings
 
-Popup is now for core engine settings only:
+The popup controls:
 
 - Enable filtering
 - Page size
 - Max cycles
 - Min matched items
 
-Territory / lot / parking name are configured on the Spacer page itself.
+Territory / parking lot / parking name are configured on the Spacer page itself.
 
-## Install / run (developer mode)
+## Install in Chrome (developer mode)
 
-1. Open `chrome://extensions`
-2. Enable **Developer mode**
-3. Click **Load unpacked**
-4. Select this folder: `pspacer-companion/`
-5. Open `https://spacer.click`
-6. Reload the tab after extension updates
+```text
+1. Open chrome://extensions
+2. Enable Developer mode
+3. Click Load unpacked
+4. Select this folder: pspacer-companion/
+```
 
-## Notes
+If extension installs are blocked by enterprise policy, ask IT to allowlist/forcelist the extension.
 
-- Extension icon uses Spacer mark-only graphics generated to PNG set (`16/32/48/128`).
-- If behavior breaks after Spacer frontend updates, check:
-  - `src/injected/page-hook.js` (network interception + fetch trigger)
-  - `src/content/content.js` (in-page controls + rule sync)
+## Install in Firefox (temporary)
 
-## Project structure
+```text
+1. Build Firefox artifact: npm run pack:firefox
+2. Open about:debugging#/runtime/this-firefox
+3. Click Load Temporary Add-on
+4. Select dist/firefox/manifest.json
+```
 
-- `manifest.json`
-- `assets/icons/*`
-- `src/background/service-worker.js`
-- `src/content/content.js`
-- `src/injected/page-hook.js`
-- `src/popup/popup.html`
-- `src/popup/popup.js`
-- `src/styles/overlay.css`
+Temporary Firefox add-ons are removed when Firefox restarts.
+
+## Troubleshooting
+
+- If Chrome says installation is blocked by policy, check browser policy (`chrome://policy`) and contact IT.
+- If Firefox says add-on is incompatible, confirm your Firefox version matches the minimum in this README.
+- If behavior breaks after Spacer frontend updates, report it with page URL + console logs.

@@ -11,26 +11,30 @@ const DEFAULT_RULES = {
   }
 };
 
-chrome.runtime.onInstalled.addListener(async () => {
-  const { rules } = await chrome.storage.sync.get("rules");
+const ext = globalThis.browser ?? globalThis.chrome;
+
+ext.runtime.onInstalled.addListener(async () => {
+  const { rules } = await ext.storage.sync.get("rules");
   if (!rules) {
-    await chrome.storage.sync.set({ rules: DEFAULT_RULES });
+    await ext.storage.sync.set({ rules: DEFAULT_RULES });
   }
 });
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+ext.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === "GET_RULES") {
-    chrome.storage.sync.get("rules").then(({ rules }) => {
+    ext.storage.sync.get("rules").then(({ rules }) => {
       sendResponse({ rules: rules ?? DEFAULT_RULES });
     });
     return true;
   }
 
   if (message?.type === "SET_RULES") {
-    chrome.storage.sync.set({ rules: message.rules }).then(async () => {
-      const tabs = await chrome.tabs.query({ url: ["https://spacer.click/*", "https://*.spacer.click/*"] });
+    ext.storage.sync.set({ rules: message.rules }).then(async () => {
+      const tabs = await ext.tabs.query({ url: ["https://spacer.click/*", "https://*.spacer.click/*"] });
       await Promise.allSettled(
-        tabs.map((tab) => chrome.tabs.sendMessage(tab.id, { type: "RULES_UPDATED", rules: message.rules }))
+        tabs
+          .filter((tab) => tab?.id != null)
+          .map((tab) => ext.tabs.sendMessage(tab.id, { type: "RULES_UPDATED", rules: message.rules }))
       );
       sendResponse({ ok: true });
     });

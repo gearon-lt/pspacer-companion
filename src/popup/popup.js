@@ -4,12 +4,14 @@ const maxFetchCycles = document.querySelector("#maxFetchCycles");
 const minItemCount = document.querySelector("#minItemCount");
 const saveBtn = document.querySelector("#save");
 
+const ext = globalThis.browser ?? globalThis.chrome;
+
 let savedRules = null;
 
 init();
 
 async function init() {
-  const { rules } = await chrome.storage.sync.get("rules");
+  const { rules } = await ext.storage.sync.get("rules");
   savedRules = rules ?? {};
 
   enabled.checked = Boolean(savedRules.enabled);
@@ -31,7 +33,7 @@ saveBtn.addEventListener("click", async () => {
     }
   };
 
-  await chrome.runtime.sendMessage({ type: "SET_RULES", rules });
+  await ext.runtime.sendMessage({ type: "SET_RULES", rules });
   window.close();
 });
 

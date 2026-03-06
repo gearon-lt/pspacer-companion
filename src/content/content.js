@@ -1,5 +1,6 @@
 const SOURCE = "PSPACER_PAGE";
 const TARGET = "PSPACER_EXTENSION";
+const ext = globalThis.browser ?? globalThis.chrome;
 
 const pendingRequests = new Map();
 let currentRules = null;
@@ -17,8 +18,8 @@ bootstrapPageParkingLotControl();
 
 async function safeSendMessage(message) {
   try {
-    if (!chrome?.runtime?.id) return null;
-    return await chrome.runtime.sendMessage(message);
+    if (!ext?.runtime?.id) return null;
+    return await ext.runtime.sendMessage(message);
   } catch (_) {
     return null;
   }
@@ -26,7 +27,7 @@ async function safeSendMessage(message) {
 
 function injectPageHook() {
   const script = document.createElement("script");
-  script.src = chrome.runtime.getURL("src/injected/page-hook.js");
+  script.src = ext.runtime.getURL("src/injected/page-hook.js");
   script.dataset.source = SOURCE;
   script.async = false;
   (document.head || document.documentElement).appendChild(script);
@@ -73,7 +74,7 @@ window.addEventListener("message", async (event) => {
   }
 });
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+ext.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === "RULES_UPDATED") {
     currentRules = message.rules || currentRules;
     window.postMessage({ source: TARGET, type: "RULES", payload: message.rules }, "*");
@@ -196,7 +197,7 @@ function renderLotOptions() {
     .sort((a, b) => a.name.localeCompare(b.name));
 
   const currentValue = lotSelectRef.value;
-  lotSelectRef.innerHTML = "";
+  lotSelectRef.replaceChildren();
   lotSelectRef.append(new Option("Any", ""));
   for (const lot of allowedLots) lotSelectRef.append(new Option(lot.name, lot.id));
 
@@ -383,13 +384,23 @@ function dedupeById(items) {
 function bootstrapOverlay() {
   const root = document.createElement("section");
   root.id = "pspacer-overlay";
-  root.innerHTML = `
-    <header>
-      <strong>PSpacer Companion</strong>
-      <span id="pspacer-status">Waiting for listing API…</span>
-    </header>
-    <div id="pspacer-summary"></div>
-  `;
+
+  const header = document.createElement("header");
+  const title = document.createElement("strong");
+  title.textContent = "PSpacer Companion";
+
+  const status = document.createElement("span");
+  status.id = "pspacer-status";
+  status.textContent = "Waiting for listing API...";
+
+  const summary = document.createElement("div");
+  summary.id = "pspacer-summary";
+
+  header.appendChild(title);
+  header.appendChild(status);
+  root.appendChild(header);
+  root.appendChild(summary);
+
   document.documentElement.appendChild(root);
 }
 
@@ -401,9 +412,19 @@ function renderOverlay(payload = {}) {
   const { total = 0, kept = 0, dropped = 0 } = payload;
   status.textContent = "Listings processed";
 
-  summary.innerHTML = [
-    `<div>Total: <b>${total}</b></div>`,
-    `<div>Kept: <b>${kept}</b></div>`,
-    `<div>Dropped: <b>${dropped}</b></div>`
-  ].join("");
+  summary.textContent = "";
+  summary.appendChild(createSummaryLine("Total", total));
+  summary.appendChild(createSummaryLine("Kept", kept));
+  summary.appendChild(createSummaryLine("Dropped", dropped));
+}
+
+function createSummaryLine(label, value) {
+  const row = document.createElement("div");
+  row.append(`${label}: `);
+
+  const strongValue = document.createElement("b");
+  strongValue.textContent = String(Number.isFinite(Number(value)) ? Number(value) : 0);
+  row.appendChild(strongValue);
+
+  return row;
 }

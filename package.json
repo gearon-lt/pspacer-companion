@@ -1,0 +1,16 @@
+{
+  "name": "pspacer-companion",
+  "private": true,
+  "version": "0.1.4",
+  "type": "module",
+  "scripts": {
+    "use:chrome": "node scripts/switch-manifest.mjs chrome",
+    "use:firefox": "node scripts/switch-manifest.mjs firefox",
+    "validate": "node scripts/validate-manifests.mjs",
+    "pack:chrome": "node scripts/pack-target.mjs chrome",
+    "pack:firefox": "node scripts/pack-target.mjs firefox",
+    "pack": "npm run pack:chrome && npm run pack:firefox",
+    "xpi:firefox": "npm run pack:firefox && node scripts/build-firefox-xpi.mjs",
+    "sign:firefox": "npm run pack:firefox && npx --yes web-ext sign -s dist/firefox -a dist --channel unlisted"
+  }
+}
