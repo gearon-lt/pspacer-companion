@@ -230,6 +230,7 @@ function mountOrUpdateControl() {
 
     parkingNameInputRef.addEventListener("change", persistTerritoryAndLot);
     parkingNameInputRef.addEventListener("focus", showParkingNamePresets);
+    parkingNameInputRef.addEventListener("click", showParkingNamePresets);
     parkingNameInputRef.addEventListener("keydown", (event) => {
       if (event.key === "ArrowDown") {
         event.preventDefault();
@@ -242,11 +243,10 @@ function mountOrUpdateControl() {
       persistTerritoryAndLot({ forceFetch: true });
     });
 
-    parkingNameToggle.addEventListener("click", (event) => {
+    parkingNameToggle.addEventListener("mousedown", (event) => {
       event.preventDefault();
       event.stopPropagation();
-      if (!parkingNamePresetsRef || parkingNamePresetsRef.style.display === "none") showParkingNamePresets();
-      else hideParkingNamePresets();
+      showParkingNamePresets();
       parkingNameInputRef?.focus();
     });
 
