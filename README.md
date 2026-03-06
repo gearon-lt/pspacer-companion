@@ -72,6 +72,15 @@ If extension installs are blocked by enterprise policy, ask IT to allowlist/forc
 
 Temporary Firefox add-ons are removed when Firefox restarts.
 
+## Build Firefox XPI (unsigned)
+
+```text
+1. Run: npm run xpi:firefox
+2. Output file: dist/pspacer-companion-firefox.xpi
+```
+
+This is useful for local distribution/testing; AMO signing is still required for official listed/unlisted release channels.
+
 ## Troubleshooting
 
 - If Chrome says installation is blocked by policy, check browser policy (`chrome://policy`) and contact IT.

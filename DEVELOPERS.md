@@ -58,8 +58,8 @@ For end-user installation and feature overview, see `README.md`.
 
 Example commands:
 
-```powershell
-cd C:\ws\pspacer-companion
+```bash
+cd /path/to/pspacer-companion
 npm run validate
 npm run pack:chrome
 npm run pack:firefox
@@ -76,10 +76,10 @@ npm run xpi:firefox
 
 Example commands:
 
-```powershell
-cd C:\ws\pspacer-companion
-$env:WEB_EXT_API_KEY="<amo-jwt-issuer>"
-$env:WEB_EXT_API_SECRET="<amo-jwt-secret>"
+```bash
+cd /path/to/pspacer-companion
+export WEB_EXT_API_KEY="<amo-jwt-issuer>"
+export WEB_EXT_API_SECRET="<amo-jwt-secret>"
 npm run sign:firefox:listed
 ```
 
