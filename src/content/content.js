@@ -15,6 +15,8 @@ let parkingNamePresetsRef = null;
 let parkingNamePresetIndex = -1;
 let parkingNamePresetArmedByKeyboard = false;
 let lastTerritoryResolved = null;
+let domObserverRef = null;
+let mountScheduled = false;
 
 injectPageHook();
 bootstrapOverlay();
@@ -104,9 +106,10 @@ async function bootstrapPageParkingLotControl() {
   const timer = setInterval(() => {
     attempts += 1;
     mountOrUpdateControl();
-    if (lotSelectRef && parkingNameInputRef || attempts >= 30) clearInterval(timer);
+    if ((lotSelectRef && parkingNameInputRef) || attempts >= 30) clearInterval(timer);
   }, 500);
 
+  startDomObserver();
 }
 
 async function refreshLookupsSilently() {
@@ -116,6 +119,34 @@ async function refreshLookupsSilently() {
     parkingLots = dedupeById(lookups?.parkingLots || []);
     renderLotOptions();
   } catch (_) {}
+}
+
+function scheduleMountOrUpdateControl() {
+  if (mountScheduled) return;
+  mountScheduled = true;
+  requestAnimationFrame(() => {
+    mountScheduled = false;
+    mountOrUpdateControl();
+  });
+}
+
+function startDomObserver() {
+  if (domObserverRef) return;
+
+  domObserverRef = new MutationObserver(() => {
+    const lotMissing = !lotSelectRef || !document.contains(lotSelectRef);
+    const nameMissing = !parkingNameInputRef || !document.contains(parkingNameInputRef);
+    const territoryMissing = !territoryControlRef || !document.contains(territoryControlRef);
+
+    if (lotMissing || nameMissing || territoryMissing) {
+      scheduleMountOrUpdateControl();
+    }
+  });
+
+  domObserverRef.observe(document.documentElement, {
+    childList: true,
+    subtree: true
+  });
 }
 
 function mountOrUpdateControl() {
