@@ -1,4 +1,4 @@
-import { copyFile, cp, mkdir, rm } from "node:fs/promises";
+import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -24,7 +24,11 @@ for (const entry of ["assets", "src"]) {
   await cp(path.join(root, entry), path.join(outDir, entry), { recursive: true });
 }
 
-await copyFile(path.join(root, `manifest.${target}.json`), path.join(outDir, "manifest.json"));
+const pkg = JSON.parse(await readFile(path.join(root, "package.json"), "utf8"));
+const sourceManifest = JSON.parse(await readFile(path.join(root, `manifest.${target}.json`), "utf8"));
+sourceManifest.version = pkg.version;
 
-console.log(`Packed ${target} extension into dist/${target}`);
+await writeFile(path.join(outDir, "manifest.json"), `${JSON.stringify(sourceManifest, null, 2)}\n`, "utf8");
+
+console.log(`Packed ${target} extension into dist/${target} (version ${pkg.version})`);
 

@@ -22,12 +22,6 @@
   "background": {
     "service_worker": "src/background/service-worker.js"
   },
-  "browser_specific_settings": {
-    "gecko": {
-      "id": "pspacer-companion@local",
-      "strict_min_version": "121.0"
-    }
-  },
   "content_scripts": [
     {
       "matches": [

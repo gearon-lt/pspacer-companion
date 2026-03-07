@@ -69,10 +69,11 @@ npm run xpi:firefox
 ## Listed AMO workflow (CLI)
 
 1. Ensure your add-on exists in AMO listed track and metadata is configured in AMO UI.
-2. Bump extension version in manifests/package.
-3. Export AMO credentials.
-4. Run listed signing script.
-5. Monitor AMO review state in Developer Hub.
+2. Bump extension version in `package.json` only (recommended: `npm version patch`).
+3. Regenerate active manifest with the new version (`npm run use:chrome` or `npm run use:firefox`).
+4. Export AMO credentials.
+5. Run listed signing script.
+6. Monitor AMO review state in Developer Hub.
 
 Example commands:
 
@@ -87,11 +88,9 @@ npm run sign:firefox:listed
 
 - Firefox package uses `background.scripts` in `manifest.firefox.json`.
 - Chrome package uses `background.service_worker` in `manifest.chrome.json`.
-- Version should be bumped consistently across:
-  - `package.json`
-  - `manifest.json`
-  - `manifest.chrome.json`
-  - `manifest.firefox.json`
+- Version source of truth is `package.json`.
+- `manifest.chrome.json` / `manifest.firefox.json` must keep `"version": "__VERSION__"`.
+- Build/switch scripts inject package version into generated manifests (`manifest.json` and `dist/*/manifest.json`).
 
 ## Debugging pointers
 

@@ -6,6 +6,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const root = path.resolve(__dirname, "..");
 
+const packageJson = JSON.parse(await readFile(path.join(root, "package.json"), "utf8"));
+const packageVersion = packageJson.version;
+
 const manifestFiles = [
   "manifest.json",
   "manifest.chrome.json",
@@ -67,6 +70,18 @@ for (const file of manifestFiles) {
       }
     }
 
+    if (file === "manifest.json") {
+      if (parsed.version !== packageVersion) {
+        hasFailure = true;
+        console.error(`${file}: version must match package.json (${packageVersion}), got ${parsed.version}`);
+        continue;
+      }
+    } else if (parsed.version !== "__VERSION__") {
+      hasFailure = true;
+      console.error(`${file}: version must be __VERSION__ placeholder`);
+      continue;
+    }
+
     console.log(`${file}: OK`);
   } catch (err) {
     hasFailure = true;
@@ -76,10 +91,11 @@ for (const file of manifestFiles) {
 
 const manifests = [...parsedByFile.values()];
 if (manifests.length === manifestFiles.length) {
-  const versions = new Set(manifests.map((m) => m.version));
+  const effectiveVersions = manifests.map((m) => (m.version === "__VERSION__" ? packageVersion : m.version));
+  const versions = new Set(effectiveVersions);
   if (versions.size !== 1) {
     hasFailure = true;
-    console.error(`Version mismatch across manifests: ${[...versions].join(", ")}`);
+    console.error(`Effective version mismatch across manifests: ${[...versions].join(", ")}`);
   }
 
   const names = new Set(manifests.map((m) => m.name));
