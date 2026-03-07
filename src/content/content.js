@@ -139,18 +139,6 @@ function startDomObserver() {
     const territoryMissing = !territoryControlRef || !document.contains(territoryControlRef);
 
     if (lotMissing || nameMissing || territoryMissing) {
-      const reasons = [];
-      if (lotMissing) reasons.push("lot");
-      if (nameMissing) reasons.push("name");
-      if (territoryMissing) reasons.push("territory");
-      safeSendMessage({
-        type: "LOG",
-        payload: {
-          type: "ui_remount_needed",
-          reason: reasons.join(","),
-          href: location.href
-        }
-      });
       scheduleMountOrUpdateControl();
     }
   });
