@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "PSpacer Companion",
   "description": "Enhances spacer.click listing UX by intercepting and filtering sharing API responses in-browser.",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "action": {
     "default_title": "PSpacer Companion",
     "default_popup": "src/popup/popup.html",
