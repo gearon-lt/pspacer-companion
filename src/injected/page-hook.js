@@ -314,8 +314,13 @@
       const items = Array.isArray(root?.items) ? root.items : [];
       totalFetched += items.length;
 
+      const seen = new Set(filteredItems.map(i => JSON.stringify(i)));
       for (const item of items) {
-        if (matchesFilter(item, activeRules?.filter)) filteredItems.push(item);
+        const key = JSON.stringify(item);
+        if (!seen.has(key) && matchesFilter(item, activeRules?.filter)) {
+          filteredItems.push(item);
+          seen.add(key);
+        }
       }
 
       if (filteredItems.length >= minItemCount) break;
