@@ -9,6 +9,30 @@ For end-user installation and feature overview, see `README.md`.
 - Node.js (current project workflows use npm scripts)
 - A local clone of this repository
 
+## Local installation for development
+
+### Chrome (unpacked)
+
+```text
+1. Open chrome://extensions
+2. Enable Developer mode
+3. Click Load unpacked
+4. Select repository root: pspacer-companion/
+```
+
+If extension installs are blocked by enterprise policy, ask IT to allowlist/forcelist the extension.
+
+### Firefox (temporary add-on)
+
+```text
+1. Build Firefox artifact: npm run pack:firefox
+2. Open about:debugging#/runtime/this-firefox
+3. Click Load Temporary Add-on
+4. Select dist/firefox/manifest.json
+```
+
+Temporary Firefox add-ons are removed when Firefox restarts.
+
 ## Project layout
 
 - `manifest.json` (active manifest used by browsers when loading root folder)

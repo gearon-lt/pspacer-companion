@@ -21,9 +21,25 @@ Developer workflow, build scripts, and project internals are in `DEVELOPERS.md`.
 
 ## Browser support
 
-- Chrome / Chromium
 - Firefox desktop `>= 140.0`
 - Firefox for Android `>= 142.0`
+- Chrome / Chromium - supported, but not published to Google yet (see `DEVELOPERS.md` for details).
+
+## Firefox listing (AMO)
+
+The extension is published on Mozilla Add-ons (listed):
+
+- https://addons.mozilla.org/en-US/firefox/addon/pspacer-companion/
+
+Install flow for end users:
+
+```text
+1. Open the AMO page
+2. Click Add to Firefox
+3. Confirm requested permissions
+```
+
+If Firefox version is below the minimum, AMO/install prompt may show incompatibility.
 
 ## In-page filters (on Spacer form)
 
@@ -50,39 +66,9 @@ The popup controls:
 
 Territory / parking lot / parking name are configured on the Spacer page itself.
 
-## Install in Chrome (developer mode)
-
-```text
-1. Open chrome://extensions
-2. Enable Developer mode
-3. Click Load unpacked
-4. Select this folder: pspacer-companion/
-```
-
-If extension installs are blocked by enterprise policy, ask IT to allowlist/forcelist the extension.
-
-## Install in Firefox (temporary)
-
-```text
-1. Build Firefox artifact: npm run pack:firefox
-2. Open about:debugging#/runtime/this-firefox
-3. Click Load Temporary Add-on
-4. Select dist/firefox/manifest.json
-```
-
-Temporary Firefox add-ons are removed when Firefox restarts.
-
-## Build Firefox XPI (unsigned)
-
-```text
-1. Run: npm run xpi:firefox
-2. Output file: dist/pspacer-companion-firefox.xpi
-```
-
-This is useful for local distribution/testing; AMO signing is still required for official listed/unlisted release channels.
-
 ## Troubleshooting
 
-- If Chrome says installation is blocked by policy, check browser policy (`chrome://policy`) and contact IT.
+- For Chrome developer/local installation, see `DEVELOPERS.md`.
 - If Firefox says add-on is incompatible, confirm your Firefox version matches the minimum in this README.
 - If behavior breaks after Spacer frontend updates, report it with page URL + console logs.
+- For developer/local installation steps, use `DEVELOPERS.md`.
