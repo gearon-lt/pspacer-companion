@@ -587,14 +587,15 @@ function bootstrapOverlay() {
 
   const header = document.createElement("header");
   const title = document.createElement("strong");
-  title.textContent = "PSpacer Companion";
+  title.textContent = "Addon";
 
   const status = document.createElement("span");
   status.id = "pspacer-status";
-  status.textContent = "Waiting for listing API...";
+  status.textContent = "Waiting...";
 
   const summary = document.createElement("div");
   summary.id = "pspacer-summary";
+  summary.textContent = "Kept/Total: 0/0";
 
   header.appendChild(title);
   header.appendChild(status);
@@ -609,13 +610,13 @@ function renderOverlay(payload = {}) {
   const summary = document.querySelector("#pspacer-summary");
   if (!status || !summary) return;
 
-  const { total = 0, kept = 0, dropped = 0 } = payload;
-  status.textContent = "Listings processed";
+  const { total = 0, kept = 0 } = payload;
+  status.textContent = "Processed";
+  summary.textContent = `Kept/Total: ${toCount(kept)}/${toCount(total)}`;
+}
 
-  summary.textContent = "";
-  summary.appendChild(createSummaryLine("Total", total));
-  summary.appendChild(createSummaryLine("Kept", kept));
-  summary.appendChild(createSummaryLine("Dropped", dropped));
+function toCount(value) {
+  return Number.isFinite(Number(value)) ? Number(value) : 0;
 }
 
 function createSummaryLine(label, value) {
@@ -623,7 +624,7 @@ function createSummaryLine(label, value) {
   row.append(`${label}: `);
 
   const strongValue = document.createElement("b");
-  strongValue.textContent = String(Number.isFinite(Number(value)) ? Number(value) : 0);
+  strongValue.textContent = String(toCount(value));
   row.appendChild(strongValue);
 
   return row;
